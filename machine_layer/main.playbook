@@ -1,14 +1,12 @@
 ---
-# ==================================================================
-# 8� t� Tx t�
-# OS, $��l, 8��� � 0� 8� $D ��i��.
-# ==================================================================
+# 머신 레이어 메인 플레이북
+# OS, 네트워크, 호스트명 등 기본 머신 설정을 담당합니다
 
-# 1. ܑ 8� 0T (� � x 8�)
-- name: "Initialize Starter Machine"
+# 1단계: 시작 머신 초기화 (현재 실행 중인 머신)
+- name: "Run Machine Layer - Initialize Starter Machine"
   ansible.builtin.import_playbook: init_starter_machine.playbook
 
-# 2. �x 8�� 0T ($��l ��D �t �)
-# TODO: t� l 
-# - name: "Initialize Other Machines"
+# 2단계: 다른 머신들 초기화 (네트워크 스캔을 통해 발견)
+# 추후 구현 예정
+# - name: "Run Machine Layer - Initialize Other Machines"
 #   ansible.builtin.import_playbook: init_other_machines.playbook
