@@ -1,0 +1,40 @@
+cluster_managers:
+  - cm
+
+network_config:
+  subnet: "192.168.219.0/24"
+  gateway: "192.168.219.1"
+  dns: "1.1.1.1 4.4.4.4"
+
+machines:
+  - name: rpicluster-laptop-1
+    ip: 192.168.219.201
+    role: manager
+    containers:
+      - storage
+      - task_queue
+      - runnin_gmate
+
+  - name: rpicluster-rpi3-1
+    ip: 192.168.219.202
+    role: worker
+    containers:
+      - runner
+
+  - name: rpicluster-rpi2-1
+    ip: 192.168.219.203
+    role: worker
+    containers:
+      - runner
+
+  # - name: rpicluster-rpi2-2
+  #   ip: 192.168.1.205
+  #   role: worker
+  #   containers:
+
+  - name: rpicluster-rpi0-1
+    ip: 192.168.219.204
+    role: worker
+    containers:
+      - service
+      - reverse_proxy
