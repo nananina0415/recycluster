@@ -18,7 +18,7 @@
         file: "{{ cluster_config_path }}"
         name: cluster_config
 
-    # 2단계: 필요한 패키지 확인 및 설치
+    # 2단계: 필요한 패키지 확인 및 설치 (Alpine Linux apk)
     - name: "Ensure required packages are installed"
       ansible.builtin.package:
         name:

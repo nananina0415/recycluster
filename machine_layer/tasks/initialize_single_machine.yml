@@ -221,17 +221,11 @@
       ansible.builtin.set_fact:
         target_host_ip: "{{ new_hosts[host_selection.user_input | int - 1] }}"
 
-# 7단계: Python 설치 (raw 모듈 사용)
+# 7단계: Python 설치 (Alpine Linux apk 사용)
 - name: "Ensure Python is installed on target host"
   ansible.builtin.raw: |
     if ! command -v python3 > /dev/null 2>&1; then
-      if command -v apk > /dev/null 2>&1; then
-        apk add --no-cache python3
-      elif command -v apt-get > /dev/null 2>&1; then
-        apt-get update && apt-get install -y python3
-      elif command -v yum > /dev/null 2>&1; then
-        yum install -y python3
-      fi
+      apk add --no-cache python3
     fi
   delegate_to: "{{ target_host_ip }}"
   vars:
