@@ -31,11 +31,11 @@ echo "--- Executing Main Playbook ---"
 
 # 2-1. 플레이북 경로 찾기
 SCRIPT_DIR=$(dirname "$0")
-PLAYBOOK_PATH="$SCRIPT_DIR/main_playbook.yml"
+PLAYBOOK_PATH="$SCRIPT_DIR/setup.playbook"
 
 # 2-2. 플레이북 파일이 있는지 확인
 if [ ! -f "$PLAYBOOK_PATH" ]; then
-    echo "Error: main_playbook.yml not found in $SCRIPT_DIR" >&2
+    echo "Error: setup.playbook not found in $SCRIPT_DIR" >&2
     exit 1
 fi
 

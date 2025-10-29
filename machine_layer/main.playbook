@@ -1,0 +1,14 @@
+---
+# ==================================================================
+# 8‡ t¥ Tx tÅ
+# OS, $∏Ãl, 8§∏Ö Ò 0¯ 8‡ $D Ù˘i»‰.
+# ==================================================================
+
+# 1. ‹ë 8‡ 0T (¨ ‰â x 8‡)
+- name: "Initialize Starter Machine"
+  ansible.builtin.import_playbook: init_starter_machine.playbook
+
+# 2. ‰x 8‡‰ 0T ($∏Ãl §îD µt ¨)
+# TODO: tƒ l 
+# - name: "Initialize Other Machines"
+#   ansible.builtin.import_playbook: init_other_machines.playbook
