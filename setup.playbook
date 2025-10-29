@@ -1,0 +1,19 @@
+---
+# ==================================================================
+# 마스터 오케스트레이터 플레이북
+# 이 파일은 각 Layer의 메인 플레이북을 순서대로 호출합니다.
+# ==================================================================
+
+# 1. 머신 레이어: OS, 네트워크, Python, SSH 등 기본 설정
+- name: "Run Machine Layer Setup"
+  ansible.builtin.import_playbook: machine_layer/main.yml
+
+# 2. 오케스트레이션 레이어: Docker, Docker Swarm 등 설정
+- name: "Run Orchestration Layer Setup"
+  ansible.builtin.import_playbook: orchestration_layer/main.yml
+  # (이 파일은 나중에 생성합니다)
+
+# 3. 컨테이너 레이어: 실제 서비스 컨테이너 배포
+- name: "Run Container Layer Setup"
+  ansible.builtin.import_playbook: container_layer/main.yml
+  # (이 파일은 나중에 생성합니다)
