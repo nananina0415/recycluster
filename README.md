@@ -17,12 +17,17 @@ Recycluster는 집에 방치된 낡은 하드웨어를 재활용(Recycle)하여 
 
 ### 지원 아키텍처
 
-Recycluster는 Alpine Linux Standard의 다음 아키텍처를 지원합니다:
+Recycluster는 Alpine Linux의 다음 아키텍처를 지원합니다 (총 6가지):
 
+#### Alpine Linux Standard (4가지)
 - **x86_64**: 64-bit PC, 노트북
 - **x86**: 32-bit PC, 낡은 노트북
-- **aarch64**: 64-bit ARM (라즈베리파이 3/4/5 등)
-- **armv7**: 32-bit ARM (라즈베리파이 2/3 등)
+- **aarch64**: 64-bit ARM 장비
+- **armv7**: 32-bit ARM 장비
+
+#### Alpine Linux 라즈베리파이용 (2가지)
+- **aarch64**: 라즈베리파이 3/4/5 (64-bit)
+- **armv7**: 라즈베리파이 2/3 (32-bit)
 
 > **주의**: 모든 머신은 Alpine Linux가 설치되어 있어야 합니다.
 
