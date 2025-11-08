@@ -1,0 +1,49 @@
+---
+# 매핑된 머신 설정 태스크
+# Python 설치 및 호스트명 변경
+
+# 1단계: 설정 시작 메시지
+- name: "Display configuration start message"
+  ansible.builtin.debug:
+    msg: |
+
+      ========================================
+      머신 설정 중 {{ config_index + 1 }}/{{ machine_mappings | length }}
+      ========================================
+      이름: {{ machine_mapping.name }}
+      IP: {{ machine_mapping.ip }}
+      역할: {{ machine_mapping.role }}
+
+# 2단계: Python 설치 (Alpine Linux apk 사용)
+- name: "Ensure Python is installed"
+  ansible.builtin.raw: |
+    if ! command -v python3 > /dev/null 2>&1; then
+      apk add --no-cache python3
+    fi
+  delegate_to: "{{ machine_mapping.ip }}"
+  vars:
+    ansible_user: "{{ machine_mapping.ssh_user }}"
+    ansible_password: "{{ machine_mapping.ssh_password }}"
+    ansible_ssh_common_args: '-o StrictHostKeyChecking=no'
+  become: yes
+  register: python_install
+  ignore_errors: no
+
+# 3단계: 호스트명 변경
+- name: "Set hostname"
+  ansible.builtin.hostname:
+    name: "{{ machine_mapping.name }}"
+  delegate_to: "{{ machine_mapping.ip }}"
+  vars:
+    ansible_user: "{{ machine_mapping.ssh_user }}"
+    ansible_password: "{{ machine_mapping.ssh_password }}"
+    ansible_become_password: "{{ machine_mapping.ssh_password }}"
+    ansible_ssh_common_args: '-o StrictHostKeyChecking=no'
+  become: yes
+
+# 4단계: 설정 완료 메시지
+- name: "Display configuration completion"
+  ansible.builtin.debug:
+    msg: |
+
+      {{ machine_mapping.name }} 설정 완료!

@@ -1,0 +1,39 @@
+---
+# 호스트 정보 수집 태스크
+# 여러 호스트의 정보를 수집합니다
+
+- name: "Get hostname from {{ scan_host_ip }}"
+  ansible.builtin.raw: hostname
+  delegate_to: "{{ scan_host_ip }}"
+  vars:
+    ansible_user: "{{ mapping_ssh_user }}"
+    ansible_password: "{{ ssh_pass_input.user_input }}"
+    ansible_ssh_common_args: '-o StrictHostKeyChecking=no'
+  register: host_hostname
+  ignore_errors: yes
+
+- name: "Get CPU info from {{ scan_host_ip }}"
+  ansible.builtin.raw: |
+    cat /proc/cpuinfo | grep -E "model name|Processor" | head -1 | cut -d: -f2 | xargs || echo "Unknown"
+  delegate_to: "{{ scan_host_ip }}"
+  vars:
+    ansible_user: "{{ mapping_ssh_user }}"
+    ansible_password: "{{ ssh_pass_input.user_input }}"
+    ansible_ssh_common_args: '-o StrictHostKeyChecking=no'
+  register: host_cpu
+  ignore_errors: yes
+
+- name: "Get memory info from {{ scan_host_ip }}"
+  ansible.builtin.raw: |
+    free -h | grep "^Mem:" | awk '{print $2}' || echo "Unknown"
+  delegate_to: "{{ scan_host_ip }}"
+  vars:
+    ansible_user: "{{ mapping_ssh_user }}"
+    ansible_password: "{{ ssh_pass_input.user_input }}"
+    ansible_ssh_common_args: '-o StrictHostKeyChecking=no'
+  register: host_memory
+  ignore_errors: yes
+
+- name: "Add host info to collection"
+  ansible.builtin.set_fact:
+    collected_host_info: "{{ collected_host_info | default([]) + [{'ip': scan_host_ip, 'hostname': host_hostname.stdout | default('알 수 없음') | trim, 'cpu': host_cpu.stdout | default('알 수 없음') | trim, 'memory': host_memory.stdout | default('알 수 없음') | trim}] }}"

@@ -1,0 +1,218 @@
+---
+# 머신을 물리적 장치에 매핑하는 태스크
+# 사용자가 컴퓨터를 켜고 네트워크 스캔으로 감지
+
+# 1단계: 대상 머신 정보 표시
+- name: "Display target machine info"
+  ansible.builtin.debug:
+    msg: |
+
+      ========================================
+      머신 {{ machine_index + 1 }}/{{ remaining_machines | length }} 매핑
+      ========================================
+      이름: {{ target_machine.name }}
+      IP (예정): {{ target_machine.ip }}
+      역할: {{ target_machine.role }}
+      컨테이너: {{ target_machine.containers | join(', ') }}
+
+# 2단계: 사용자에게 머신 켜기 안내
+- name: "Wait for user to power on machine"
+  ansible.builtin.pause:
+    prompt: |
+
+      위 정보에 해당하는 컴퓨터를 켜고 네트워크에 연결한 후 Enter를 누르세요...
+  register: user_ready
+
+# 3단계: 이전 스캔 저장
+- name: "Save previous scan as baseline"
+  ansible.builtin.set_fact:
+    previous_scan_for_compare: "{{ current_network_scan | default(initial_scan) }}"
+
+# 4단계: 새로운 네트워크 스캔
+- name: "Perform new network scan"
+  ansible.builtin.shell: |
+    nmap -sn {{ cluster_config.network_config.subnet }} -oG - | grep "Up" | awk '{print $2}' | sort
+  register: current_network_scan
+  changed_when: false
+
+# 5단계: 추가된 호스트 찾기
+- name: "Find newly added hosts"
+  ansible.builtin.set_fact:
+    new_hosts: "{{ current_network_scan.stdout_lines | difference(previous_scan_for_compare.stdout_lines) }}"
+
+# 6단계: 새 호스트 개수 확인
+- name: "Check number of new hosts"
+  ansible.builtin.debug:
+    msg: "감지된 새 호스트 수: {{ new_hosts | length }}"
+
+# 7단계: 새 호스트가 0개인 경우 - 재시도
+- name: "Handle no new hosts detected"
+  when: new_hosts | length == 0
+  block:
+    - name: "Prompt for retry"
+      ansible.builtin.pause:
+        prompt: |
+
+          새로운 머신을 감지하지 못했습니다.
+          머신이 완전히 부팅되었는지 확인하고 Enter를 눌러 다시 시도하세요...
+
+    - name: "Rescan network"
+      ansible.builtin.shell: |
+        nmap -sn {{ cluster_config.network_config.subnet }} -oG - | grep "Up" | awk '{print $2}' | sort
+      register: retry_scan
+      changed_when: false
+
+    - name: "Find new hosts after retry"
+      ansible.builtin.set_fact:
+        new_hosts: "{{ retry_scan.stdout_lines | difference(current_network_scan.stdout_lines) }}"
+
+    - name: "Fail if still no hosts"
+      ansible.builtin.fail:
+        msg: "여전히 새로운 호스트를 감지할 수 없습니다. 네트워크와 머신 상태를 확인하세요."
+      when: new_hosts | length == 0
+
+    - name: "Update current scan"
+      ansible.builtin.set_fact:
+        current_network_scan: "{{ retry_scan }}"
+
+# 8단계: SSH 자격증명 입력
+- name: "Prompt for SSH credentials"
+  ansible.builtin.pause:
+    prompt: |
+
+      SSH 접속을 위한 정보를 입력하세요.
+      사용자명 (기본값: root)
+  register: ssh_user_input
+
+- name: "Set SSH username"
+  ansible.builtin.set_fact:
+    mapping_ssh_user: "{{ ssh_user_input.user_input if ssh_user_input.user_input != '' else 'root' }}"
+
+- name: "Prompt for SSH password"
+  ansible.builtin.pause:
+    prompt: "비밀번호"
+    echo: no
+  register: ssh_pass_input
+
+# 9단계: 새 호스트가 1개인 경우 - 정보 수집 및 확인
+- name: "Handle single new host"
+  when: new_hosts | length == 1
+  block:
+    - name: "Set detected host IP"
+      ansible.builtin.set_fact:
+        detected_host_ip: "{{ new_hosts[0] }}"
+
+    - name: "Get hostname from detected host"
+      ansible.builtin.raw: hostname
+      delegate_to: "{{ detected_host_ip }}"
+      vars:
+        ansible_user: "{{ mapping_ssh_user }}"
+        ansible_password: "{{ ssh_pass_input.user_input }}"
+        ansible_ssh_common_args: '-o StrictHostKeyChecking=no'
+      register: hostname_result
+      ignore_errors: yes
+
+    - name: "Get CPU info from detected host"
+      ansible.builtin.raw: |
+        cat /proc/cpuinfo | grep -E "model name|Processor" | head -1 | cut -d: -f2 | xargs || echo "Unknown"
+      delegate_to: "{{ detected_host_ip }}"
+      vars:
+        ansible_user: "{{ mapping_ssh_user }}"
+        ansible_password: "{{ ssh_pass_input.user_input }}"
+        ansible_ssh_common_args: '-o StrictHostKeyChecking=no'
+      register: cpu_result
+      ignore_errors: yes
+
+    - name: "Get memory info from detected host"
+      ansible.builtin.raw: |
+        free -h | grep "^Mem:" | awk '{print $2}' || echo "Unknown"
+      delegate_to: "{{ detected_host_ip }}"
+      vars:
+        ansible_user: "{{ mapping_ssh_user }}"
+        ansible_password: "{{ ssh_pass_input.user_input }}"
+        ansible_ssh_common_args: '-o StrictHostKeyChecking=no'
+      register: mem_result
+      ignore_errors: yes
+
+    - name: "Display detected host info"
+      ansible.builtin.debug:
+        msg: |
+
+          ========================================
+          감지된 머신 정보
+          ========================================
+          IP: {{ detected_host_ip }}
+          호스트명: {{ hostname_result.stdout | default('알 수 없음') | trim }}
+          CPU: {{ cpu_result.stdout | default('알 수 없음') | trim }}
+          메모리: {{ mem_result.stdout | default('알 수 없음') | trim }}
+
+    - name: "Confirm machine selection"
+      ansible.builtin.pause:
+        prompt: |
+
+          이 머신을 '{{ target_machine.name }}'으로 사용하시겠습니까? (y/n)
+      register: confirm_single
+
+    - name: "Validate confirmation"
+      ansible.builtin.fail:
+        msg: "사용자가 선택을 취소했습니다."
+      when: confirm_single.user_input | lower != 'y'
+
+    - name: "Add to machine mappings"
+      ansible.builtin.set_fact:
+        machine_mappings: "{{ machine_mappings + [{'name': target_machine.name, 'ip': detected_host_ip, 'ssh_user': mapping_ssh_user, 'ssh_password': ssh_pass_input.user_input, 'target_ip': target_machine.ip, 'role': target_machine.role}] }}"
+
+# 10단계: 새 호스트가 2개 이상인 경우 - 정보 수집 후 선택
+- name: "Handle multiple new hosts"
+  when: new_hosts | length > 1
+  block:
+    - name: "Collect info for each new host"
+      include_tasks: collect_host_info.yml
+      loop: "{{ new_hosts }}"
+      loop_control:
+        loop_var: scan_host_ip
+        index_var: scan_host_index
+
+    - name: "Display all detected hosts"
+      ansible.builtin.debug:
+        msg: |
+
+          ========================================
+          {{ new_hosts | length }}개의 머신이 감지되었습니다
+          ========================================
+          {% for info in collected_host_info %}
+          {{ loop.index }}. IP: {{ info.ip }}
+             호스트명: {{ info.hostname }}
+             CPU: {{ info.cpu }}
+             메모리: {{ info.memory }}
+          {% endfor %}
+
+    - name: "Prompt for host selection"
+      ansible.builtin.pause:
+        prompt: |
+
+          어떤 머신을 '{{ target_machine.name }}'으로 사용하시겠습니까?
+          번호를 입력하세요 (1-{{ new_hosts | length }})
+      register: host_selection
+
+    - name: "Validate selection"
+      ansible.builtin.assert:
+        that:
+          - host_selection.user_input | int > 0
+          - host_selection.user_input | int <= new_hosts | length
+        fail_msg: "잘못된 번호입니다."
+
+    - name: "Get selected host info"
+      ansible.builtin.set_fact:
+        selected_host_info: "{{ collected_host_info[host_selection.user_input | int - 1] }}"
+
+    - name: "Add to machine mappings"
+      ansible.builtin.set_fact:
+        machine_mappings: "{{ machine_mappings + [{'name': target_machine.name, 'ip': selected_host_info.ip, 'ssh_user': mapping_ssh_user, 'ssh_password': ssh_pass_input.user_input, 'target_ip': target_machine.ip, 'role': target_machine.role}] }}"
+
+# 11단계: 매핑 완료 메시지
+- name: "Display mapping completion"
+  ansible.builtin.debug:
+    msg: |
+
+      {{ target_machine.name }} 매핑 완료: {{ machine_mappings[-1].ip }}

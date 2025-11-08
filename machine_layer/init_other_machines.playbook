@@ -9,7 +9,7 @@
 
   vars:
     cluster_config_path: "{{ playbook_dir }}/../cluster_config.yml"
-    scan_attempts: 3
+    machine_mappings: []
 
   tasks:
     # 1단계: 클러스터 구성 파일 로드
@@ -37,17 +37,16 @@
           ========================================
 
           주의사항:
-          1. 네트워크에 새로운 장치가 연결되지 않도록 주의하세요
-          2. 클러스터에 추가할 머신만 켜주세요
-          3. 각 머신은 SSH 접속이 가능해야 합니다
-          4. 기본 사용자 계정과 비밀번호를 알고 있어야 합니다
+          1. 클러스터에 추가할 모든 컴퓨터를 꺼두세요
+          2. 네트워크에 다른 장치가 연결되지 않도록 주의하세요
+          3. 각 컴퓨터는 SSH 접속이 가능해야 합니다
 
           준비가 완료되면 Enter를 눌러 계속 진행하세요...
 
-    # 4단계: 초기 네트워크 스캔
+    # 4단계: 초기 네트워크 스캔 (모든 컴이 꺼져있는 상태)
     - name: "Perform initial network scan"
       ansible.builtin.shell: |
-        nmap -sn {{ cluster_config.network_config.subnet }} | grep -E "Nmap scan report|Host is up" | grep "Nmap scan report" | awk '{print $5}' | sort
+        nmap -sn {{ cluster_config.network_config.subnet }} -oG - | grep "Up" | awk '{print $2}' | sort
       register: initial_scan
       changed_when: false
 
@@ -55,19 +54,12 @@
       ansible.builtin.debug:
         msg: |
           초기 네트워크 스캔 완료
-          발견된 호스트 수: {{ initial_scan.stdout_lines | length }}
+          현재 네트워크에 있는 호스트 수: {{ initial_scan.stdout_lines | length }}
 
-    # 5단계: 이미 설정된 머신들의 호스트명 수집
-    - name: "Collect configured machine names"
-      ansible.builtin.set_fact:
-        configured_names: "{{ cluster_config.machines | map(attribute='name') | list }}"
-
-    # 6단계: 초기 스캔에서 이미 설정된 머신 확인
-    - name: "Check which machines are already configured"
+    # 5단계: 이미 설정된 머신들 확인
+    - name: "Check for already configured machines"
       ansible.builtin.shell: |
-        if ping -c 1 -W 1 {{ item.name }} > /dev/null 2>&1; then
-          echo "{{ item.name }}"
-        fi
+        nmap -sn {{ item.ip }} -oG - | grep "Up" > /dev/null && echo "configured" || echo "not_found"
       loop: "{{ cluster_config.machines }}"
       register: configured_check
       changed_when: false
@@ -75,17 +67,17 @@
 
     - name: "Build list of already configured machines"
       ansible.builtin.set_fact:
-        already_configured: "{{ configured_check.results | selectattr('stdout', 'defined') | selectattr('stdout', 'ne', '') | map(attribute='stdout') | list }}"
+        already_configured: "{{ configured_check.results | selectattr('stdout', 'search', 'configured') | map(attribute='item') | list }}"
 
     - name: "Display already configured machines"
       ansible.builtin.debug:
         msg: |
-          이미 설정된 머신들: {{ already_configured | join(', ') if already_configured | length > 0 else '없음' }}
+          이미 설정된 머신들: {{ already_configured | map(attribute='name') | join(', ') if already_configured | length > 0 else '없음' }}
 
-    # 7단계: 남은 머신 리스트 생성
+    # 6단계: 남은 머신 리스트 생성
     - name: "Build remaining machines list"
       ansible.builtin.set_fact:
-        remaining_machines: "{{ cluster_config.machines | rejectattr('name', 'in', already_configured) | list }}"
+        remaining_machines: "{{ cluster_config.machines | difference(already_configured) }}"
 
     - name: "Check if all machines are configured"
       ansible.builtin.debug:
@@ -96,15 +88,38 @@
       ansible.builtin.meta: end_play
       when: remaining_machines | length == 0
 
-    # 8단계: 머신 초기화 루프
-    - name: "Initialize remaining machines"
-      include_tasks: tasks/initialize_single_machine.yml
+    # 7단계: 각 머신을 물리적 장치에 매핑
+    - name: "Map each machine to physical device"
+      include_tasks: map_machine_to_device.yml
       loop: "{{ remaining_machines }}"
       loop_control:
         loop_var: target_machine
         index_var: machine_index
 
-    # 9단계: 완료 메시지
+    # 8단계: 매핑 결과 확인
+    - name: "Display all machine mappings"
+      ansible.builtin.debug:
+        msg: |
+
+          ========================================
+          머신 매핑 완료
+          ========================================
+          {% for mapping in machine_mappings %}
+          {{ loop.index }}. {{ mapping.name }} -> {{ mapping.ip }}
+             SSH 사용자: {{ mapping.ssh_user }}
+          {% endfor %}
+
+          모든 머신이 매핑되었습니다. 이제 설정을 시작합니다...
+
+    # 9단계: 각 머신 설정 수행
+    - name: "Configure each mapped machine"
+      include_tasks: configure_mapped_machine.yml
+      loop: "{{ machine_mappings }}"
+      loop_control:
+        loop_var: machine_mapping
+        index_var: config_index
+
+    # 10단계: 완료 메시지
     - name: "Display completion message"
       ansible.builtin.debug:
         msg: |
