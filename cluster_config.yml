@@ -9,6 +9,7 @@ network_config:
 machines:
   - name: rpicluster-laptop-1
     ip: 192.168.219.201
+    detected_ip: null
     role: manager
     containers:
       - storage
@@ -17,23 +18,27 @@ machines:
 
   - name: rpicluster-rpi3-1
     ip: 192.168.219.202
+    detected_ip: null
     role: worker
     containers:
       - runner
 
   - name: rpicluster-rpi2-1
     ip: 192.168.219.203
+    detected_ip: null
     role: worker
     containers:
       - runner
 
   # - name: rpicluster-rpi2-2
   #   ip: 192.168.1.205
+  #   detected_ip: null
   #   role: worker
   #   containers:
 
   - name: rpicluster-rpi0-1
     ip: 192.168.219.204
+    detected_ip: null
     role: worker
     containers:
       - service

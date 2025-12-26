@@ -130,55 +130,25 @@ class NodeMapper:
 
         print()
 
-    def generate_inventory(self) -> str:
+    def save_detected_ips(self) -> None:
         """
-        Ansible 동적 인벤토리를 생성합니다.
-
-        Returns:
-            인벤토리 내용 (YAML 형식)
+        감지된 IP 주소를 cluster_config.yml에 업데이트합니다.
         """
-        inventory = {
-            'all': {
-                'hosts': {},
-                'children': {
-                    'managers': {'hosts': {}},
-                    'workers': {'hosts': {}}
-                }
-            }
-        }
+        # 매핑된 정보를 기반으로 machines 항목 업데이트
+        machines = self.cluster_config.get('machines', [])
 
         for mapping in self.node_mappings:
-            host_vars = {
-                'ansible_host': mapping['detected_ip'],
-                'ansible_user': 'root',  # 필요에 따라 수정
-                'node_role': mapping['role'],
-                'containers': mapping.get('containers', [])
-            }
+            # 해당 노드를 찾아서 detected_ip 업데이트
+            for machine in machines:
+                if machine['name'] == mapping['node_name']:
+                    machine['detected_ip'] = mapping['detected_ip']
+                    break
 
-            # all.hosts에 추가
-            inventory['all']['hosts'][mapping['node_name']] = host_vars
+        # 업데이트된 설정을 파일에 저장
+        with open(self.config_path, 'w', encoding='utf-8') as f:
+            yaml.dump(self.cluster_config, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
 
-            # 역할별 그룹에 추가
-            if mapping['role'] == 'manager':
-                inventory['all']['children']['managers']['hosts'][mapping['node_name']] = None
-            elif mapping['role'] == 'worker':
-                inventory['all']['children']['workers']['hosts'][mapping['node_name']] = None
-
-        return yaml.dump(inventory, default_flow_style=False, allow_unicode=True)
-
-    def save_inventory(self, output_path: str = 'inventory.yml') -> None:
-        """
-        생성된 인벤토리를 파일로 저장합니다.
-
-        Args:
-            output_path: 저장할 파일 경로
-        """
-        inventory_content = self.generate_inventory()
-
-        with open(output_path, 'w', encoding='utf-8') as f:
-            f.write(inventory_content)
-
-        print(f"✓ 인벤토리 파일 저장 완료: {output_path}")
+        print(f"✓ 감지된 IP 주소를 cluster_config.yml에 저장 완료")
 
 
 if __name__ == '__main__':
@@ -203,6 +173,6 @@ if __name__ == '__main__':
 
     mapper.display_summary()
 
-    # 인벤토리 생성 테스트
-    print("\n생성된 인벤토리:")
-    print(mapper.generate_inventory())
+    # 감지된 IP 저장 테스트
+    print("\n감지된 IP 저장 테스트...")
+    # mapper.save_detected_ips()  # 실제 파일 수정을 방지하기 위해 주석 처리

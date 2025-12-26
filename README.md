@@ -60,13 +60,16 @@ mkdir my-cluster
 cd my-cluster
 ```
 
-### 2. 설정 파일 생성 및 편집
+### 2. 프로젝트 초기화
 
 ```bash
-# 템플릿 파일 자동 생성
-sudo rccr setup
+# 템플릿 파일 생성
+rccr init
+```
 
-# 생성된 cluster_config.yml 편집
+### 3. 설정 파일 편집
+
+```bash
 vi cluster_config.yml
 ```
 
@@ -94,19 +97,19 @@ machines:
       - runner
 ```
 
-### 3. 셋업 실행
+### 4. 셋업 실행
 
 ```bash
 sudo rccr setup
 ```
 
-### 4. 대화형 안내에 따라 진행
+### 5. 대화형 안내에 따라 진행
 
 셋업 스크립트가 실행되면 다음과 같은 안내가 표시됩니다:
 
 ```
 =================================================================
-  RCCR (Recycluster) Setup
+  RCCR (ReCyClusteR) Setup
 =================================================================
 
 서브넷 192.168.219.0/24 를 스캔합니다...
@@ -115,7 +118,7 @@ sudo rccr setup
 ┌─────────────────────────────────────────────────────────────────┐
 │ [1/4] 다음 노드를 네트워크에 연결해주세요                        │
 ├─────────────────────────────────────────────────────────────────┤
-│ 노드명:       rpicluster-laptop-1                               │
+│ 노드명:       laptop-1                                          │
 │ 할당 IP:      192.168.219.201                                   │
 │ 역할:         manager                                           │
 │ 컨테이너:     - storage                                         │
@@ -132,7 +135,7 @@ sudo rccr setup
 
 ### 1단계: 종속성 설치
 - Python 3, pip, nmap, Ansible 등 필요한 도구 자동 설치
-- 여러 Linux 배포판 지원 (apt, yum, apk)
+- Alpine Linux APK 패키지 관리자 사용
 
 ### 2단계: 노드 감지 및 매핑
 - 네트워크 스냅샷을 생성하여 현재 상태 저장
@@ -140,13 +143,13 @@ sudo rccr setup
 - 스냅샷 비교를 통해 새로 추가된 머신 자동 감지
 - 감지된 머신을 설정 파일의 노드와 순서대로 매핑
 
-### 3단계: Ansible 인벤토리 생성
-- 감지된 노드 정보를 바탕으로 동적 인벤토리 생성
-- `inventory.yml` 파일에 저장
+### 3단계: 설정 파일 업데이트
+- 감지된 IP 주소를 `cluster_config.yml`의 `detected_ip` 필드에 저장
+- `cluster_config.yml`이 단일 정보 소스로 사용됨
 
 ### 4단계: 클러스터 배포
 - Ansible playbook을 사용하여 각 노드 설정
-- Docker 설치
+- 각 노드에 Docker 설치 (노드는 다양한 Linux 배포판 가능)
 - 컨테이너 이미지 다운로드 및 실행
 
 ## 프로젝트 구조
@@ -182,51 +185,53 @@ recycluster/
 
 ## 생성되는 파일
 
-- `inventory.yml`: Ansible이 사용하는 동적 인벤토리 파일
-  - 감지된 노드의 IP 주소와 설정 정보 포함
-  - 매니저/워커 그룹으로 자동 분류
+셋업 과정에서 `cluster_config.yml` 파일이 업데이트됩니다:
+- 각 머신의 `detected_ip` 필드에 감지된 IP 주소가 기록됨
+- Ansible playbook이 이 파일을 직접 읽어서 배포 수행
 
 ## CLI 명령어
 
 ```bash
+# 프로젝트 초기화 (템플릿 생성)
+rccr init
+
+# 클러스터 셋업
+sudo rccr setup
+
 # 버전 확인
 rccr version
 
 # 도움말
 rccr help
-
-# 클러스터 셋업
-sudo rccr setup
 ```
 
 ## 고급 사용법
 
-### 인벤토리 파일 확인
+### 설정 파일 확인
 
 ```bash
-cat inventory.yml
+cat cluster_config.yml
 ```
+
+셋업 완료 후 각 머신의 `detected_ip` 필드에 감지된 IP가 기록됩니다.
 
 ### 수동으로 Ansible playbook 실행
 
 ```bash
-ansible-playbook -i inventory.yml /usr/share/rccr/deploy_cluster.playbook
-```
-
-### 특정 노드만 설정
-
-```bash
-ansible-playbook -i inventory.yml /usr/share/rccr/deploy_cluster.playbook --limit rpicluster-laptop-1
+ansible-playbook -e @cluster_config.yml /usr/share/rccr/deploy_cluster.playbook
 ```
 
 ### 태그를 사용한 부분 실행
 
 ```bash
 # Docker 설치만 실행
-ansible-playbook -i inventory.yml /usr/share/rccr/deploy_cluster.playbook --tags docker
+ansible-playbook -e @cluster_config.yml /usr/share/rccr/deploy_cluster.playbook --tags docker
 
 # 컨테이너 배포만 실행
-ansible-playbook -i inventory.yml /usr/share/rccr/deploy_cluster.playbook --tags containers
+ansible-playbook -e @cluster_config.yml /usr/share/rccr/deploy_cluster.playbook --tags containers
+
+# 네트워크 설정만 실행
+ansible-playbook -e @cluster_config.yml /usr/share/rccr/deploy_cluster.playbook --tags network
 ```
 
 ## 문제 해결
