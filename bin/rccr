@@ -9,6 +9,18 @@ import os
 from pathlib import Path
 
 
+def is_admin():
+    """관리자/root 권한 확인 (크로스 플랫폼)"""
+    if sys.platform == 'win32':
+        try:
+            import ctypes
+            return ctypes.windll.shell32.IsUserAnAdmin() != 0
+        except Exception:
+            return False
+    else:
+        return os.geteuid() == 0
+
+
 def main():
     """메인 CLI 함수"""
     # 설치 경로 확인
@@ -90,10 +102,14 @@ def run_init(install_dir):
 
 def run_setup(install_dir):
     """셋업 프로세스 실행"""
-    # Root 권한 확인
-    if os.geteuid() != 0:
-        print("오류: 이 명령은 root 권한이 필요합니다.")
-        print("다시 시도: sudo rccr setup")
+    # Root/Admin 권한 확인 (Docker 컨테이너 내에서는 스킵)
+    if not os.path.exists('/.dockerenv') and not is_admin():
+        if sys.platform == 'win32':
+            print("오류: 이 명령은 관리자 권한이 필요합니다.")
+            print("다시 시도: PowerShell을 관리자 권한으로 실행하세요")
+        else:
+            print("오류: 이 명령은 root 권한이 필요합니다.")
+            print("다시 시도: sudo rccr setup 또는 Docker 사용")
         sys.exit(1)
 
     # 현재 디렉토리에서 cluster_config.yml 찾기
