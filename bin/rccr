@@ -165,11 +165,11 @@ def run_ansible_deployment(install_dir):
     print("  Ansible playbook 실행 중...")
     print("=================================================================")
 
-    inventory_path = Path.cwd() / 'inventory.yml'
+    config_path = Path.cwd() / 'cluster_config.yml'
     playbook_path = install_dir / 'deploy_cluster.playbook'
 
-    if not inventory_path.exists():
-        print("경고: inventory.yml 파일이 생성되지 않았습니다.")
+    if not config_path.exists():
+        print("경고: cluster_config.yml 파일을 찾을 수 없습니다.")
         return
 
     if not playbook_path.exists():
@@ -178,7 +178,7 @@ def run_ansible_deployment(install_dir):
 
     try:
         result = subprocess.run(
-            ['ansible-playbook', '-i', str(inventory_path), str(playbook_path)],
+            ['ansible-playbook', '-e', f'@{config_path}', str(playbook_path)],
             check=False
         )
 

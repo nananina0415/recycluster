@@ -100,9 +100,8 @@ class RCCRSetup:
         print("설정 저장 중...")
         print("=" * 67)
 
-        # 인벤토리 저장
-        inventory_path = Path(__file__).parent.parent / 'inventory.yml'
-        self.mapper.save_inventory(str(inventory_path))
+        # 감지된 IP 주소를 cluster_config.yml에 저장
+        self.mapper.save_detected_ips()
 
         return True
 
