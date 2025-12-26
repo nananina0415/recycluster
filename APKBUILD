@@ -4,7 +4,7 @@ pkgver=0.0.1
 pkgrel=0
 pkgdesc="ReCyClusteR - Automated cluster setup tool with network discovery"
 url="https://github.com/nananina0415/recycluster"
-arch="noarch"
+arch="all"
 license="MIT"
 depends="
     python3

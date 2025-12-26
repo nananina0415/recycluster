@@ -9,63 +9,89 @@ on:
 jobs:
   build-apk:
     runs-on: ubuntu-latest
-    container:
-      image: alpine:latest
+    strategy:
+      matrix:
+        include:
+          - arch: x86
+            platform: linux/386
+          - arch: x86_64
+            platform: linux/amd64
+          - arch: armhf
+            platform: linux/arm/v6
+          - arch: armv7
+            platform: linux/arm/v7
+          - arch: aarch64
+            platform: linux/arm64
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install build dependencies
-        run: |
-          apk update
-          apk add alpine-sdk sudo bash
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: all
 
-      - name: Create builder user
-        run: |
-          adduser -D builder
-          addgroup builder abuild
-          echo "builder ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
-          mkdir -p /var/cache/distfiles
-          chown builder:abuild /var/cache/distfiles
+      - name: Build APK for ${{ matrix.arch }}
+        uses: addnab/docker-run-action@v3
+        with:
+          image: alpine:latest
+          options: -v ${{ github.workspace }}:/workspace --platform ${{ matrix.platform }}
+          run: |
+            cd /workspace
+            apk update
+            apk add alpine-sdk sudo bash
 
-      - name: Setup build keys
-        run: |
-          su builder -c "abuild-keygen -a -i -n"
+            # Create builder user
+            adduser -D builder
+            addgroup builder abuild
+            echo "builder ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+            mkdir -p /var/cache/distfiles
+            chown builder:abuild /var/cache/distfiles
 
-      - name: Prepare build
-        run: |
-          chmod +x build-apk.sh
-          ./build-apk.sh
+            # Setup build keys
+            su builder -c "abuild-keygen -a -i -n"
 
-      - name: Generate checksums
-        run: |
-          cd build
-          su builder -c "abuild checksum"
+            # Prepare build
+            chmod +x build-apk.sh
+            ./build-apk.sh
 
-      - name: Build package
-        run: |
-          cd build
-          su builder -c "abuild -r"
+            # Build package
+            cd build
+            su builder -c "abuild checksum"
+            su builder -c "abuild -r"
 
-      - name: Find built package
-        id: find_package
-        run: |
-          PACKAGE=$(find /home/builder/packages -name "rccr-*.apk" | head -n 1)
-          echo "package_path=$PACKAGE" >> $GITHUB_OUTPUT
-          echo "package_name=$(basename $PACKAGE)" >> $GITHUB_OUTPUT
+            # Copy built package to workspace
+            mkdir -p /workspace/packages
+            BUILT_PKG=$(find /home/builder/packages/main/${{ matrix.arch }} -name "rccr-*.apk" | head -n 1)
+            if [ -n "$BUILT_PKG" ]; then
+              cp "$BUILT_PKG" /workspace/packages/rccr-0.0.1-r0-${{ matrix.arch }}.apk
+            fi
 
-      - name: Upload APK as artifact
+      - name: Upload APK artifact for ${{ matrix.arch }}
         uses: actions/upload-artifact@v4
         with:
-          name: rccr-apk
-          path: ${{ steps.find_package.outputs.package_path }}
+          name: rccr-${{ matrix.arch }}
+          path: packages/rccr-*.apk
+
+  release:
+    needs: build-apk
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Display structure
+        run: ls -R artifacts/
 
       - name: Create Release
-        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v1
         with:
-          files: ${{ steps.find_package.outputs.package_path }}
+          files: artifacts/**/*.apk
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -73,8 +99,14 @@ jobs:
       - name: Summary
         run: |
           echo "## Build Summary" >> $GITHUB_STEP_SUMMARY
-          echo "- Package: ${{ steps.find_package.outputs.package_name }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Path: ${{ steps.find_package.outputs.package_path }}" >> $GITHUB_STEP_SUMMARY
-          if [ -n "${{ github.ref_name }}" ]; then
-            echo "- Tag: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
-          fi
+          echo "Built packages for all architectures:" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Architecture | Description |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------------|-------------|" >> $GITHUB_STEP_SUMMARY
+          echo "| x86 | 32-bit x86 (older PCs) |" >> $GITHUB_STEP_SUMMARY
+          echo "| x86_64 | 64-bit x86 (modern PCs/servers) |" >> $GITHUB_STEP_SUMMARY
+          echo "| armhf | 32-bit ARM (Raspberry Pi 1/Zero) |" >> $GITHUB_STEP_SUMMARY
+          echo "| armv7 | 32-bit ARMv7 (general ARM devices) |" >> $GITHUB_STEP_SUMMARY
+          echo "| aarch64 | 64-bit ARM (Raspberry Pi 3/4, ARM64 devices) |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Tag:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY

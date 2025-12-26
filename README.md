@@ -22,12 +22,43 @@
 
 #### GitHub Releases에서 다운로드 (권장)
 
-```bash
-# 최신 릴리스 다운로드
-wget https://github.com/nananina0415/recycluster/releases/latest/download/rccr-0.0.1-r0.apk
+아키텍처에 맞는 패키지를 다운로드하세요:
 
-# 설치
-apk add --allow-untrusted rccr-0.0.1-r0.apk
+| 아키텍처 | 설명 | 다운로드 |
+|---------|------|---------|
+| `x86` | 32-bit x86 (구형 PC) | [rccr-0.0.1-r0-x86.apk](https://github.com/nananina0415/recycluster/releases/latest/download/rccr-0.0.1-r0-x86.apk) |
+| `x86_64` | 64-bit x86 (일반 PC/서버) | [rccr-0.0.1-r0-x86_64.apk](https://github.com/nananina0415/recycluster/releases/latest/download/rccr-0.0.1-r0-x86_64.apk) |
+| `armhf` | 32-bit ARM (Raspberry Pi 1/Zero) | [rccr-0.0.1-r0-armhf.apk](https://github.com/nananina0415/recycluster/releases/latest/download/rccr-0.0.1-r0-armhf.apk) |
+| `armv7` | 32-bit ARMv7 (일반 ARM 기기) | [rccr-0.0.1-r0-armv7.apk](https://github.com/nananina0415/recycluster/releases/latest/download/rccr-0.0.1-r0-armv7.apk) |
+| `aarch64` | 64-bit ARM (Raspberry Pi 3/4, ARM64) | [rccr-0.0.1-r0-aarch64.apk](https://github.com/nananina0415/recycluster/releases/latest/download/rccr-0.0.1-r0-aarch64.apk) |
+
+설치 예시:
+
+```bash
+# x86_64 (일반 PC/서버)
+wget https://github.com/nananina0415/recycluster/releases/latest/download/rccr-0.0.1-r0-x86_64.apk
+apk add --allow-untrusted rccr-0.0.1-r0-x86_64.apk
+
+# aarch64 (Raspberry Pi 3/4, 64-bit ARM)
+wget https://github.com/nananina0415/recycluster/releases/latest/download/rccr-0.0.1-r0-aarch64.apk
+apk add --allow-untrusted rccr-0.0.1-r0-aarch64.apk
+
+# armhf (Raspberry Pi 1/Zero)
+wget https://github.com/nananina0415/recycluster/releases/latest/download/rccr-0.0.1-r0-armhf.apk
+apk add --allow-untrusted rccr-0.0.1-r0-armhf.apk
+```
+
+아키텍처 확인:
+
+```bash
+# 현재 시스템 아키텍처 확인
+uname -m
+
+# 출력 예시:
+# x86_64    → x86_64 패키지 사용
+# aarch64   → aarch64 패키지 사용
+# armv7l    → armv7 패키지 사용
+# armv6l    → armhf 패키지 사용
 ```
 
 #### APK 저장소에서 설치 (향후)
