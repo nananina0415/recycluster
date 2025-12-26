@@ -33,12 +33,14 @@ jobs:
           platforms: all
 
       - name: Build APK for ${{ matrix.arch }}
-        uses: addnab/docker-run-action@v3
-        with:
-          image: alpine:latest
-          options: -v ${{ github.workspace }}:/workspace --platform ${{ matrix.platform }}
-          run: |
-            cd /workspace
+        run: |
+          docker run --rm --platform ${{ matrix.platform }} \
+            -v ${{ github.workspace }}:/workspace \
+            -w /workspace \
+            alpine:latest sh -c '
+            set -ex
+
+            # Install build dependencies
             apk update
             apk add alpine-sdk sudo bash
 
@@ -61,18 +63,34 @@ jobs:
             su builder -c "abuild checksum"
             su builder -c "abuild -r"
 
-            # Copy built package to workspace
-            mkdir -p /workspace/packages
-            BUILT_PKG=$(find /home/builder/packages/main/${{ matrix.arch }} -name "rccr-*.apk" | head -n 1)
+            # Find and copy built package
+            BUILT_PKG=$(find /home/builder/packages -name "rccr-*.apk" -type f | head -n 1)
             if [ -n "$BUILT_PKG" ]; then
-              cp "$BUILT_PKG" /workspace/packages/rccr-0.0.1-r0-${{ matrix.arch }}.apk
+              mkdir -p /workspace/output
+              cp "$BUILT_PKG" /workspace/output/rccr-0.0.1-r0-${{ matrix.arch }}.apk
+              echo "Package built: $(basename $BUILT_PKG)"
+              ls -lh /workspace/output/
+            else
+              echo "ERROR: No package found"
+              find /home/builder/packages -type f
+              exit 1
             fi
+          '
+
+      - name: Verify package exists
+        run: |
+          ls -lh output/
+          if [ ! -f output/rccr-0.0.1-r0-${{ matrix.arch }}.apk ]; then
+            echo "ERROR: Package not found!"
+            exit 1
+          fi
 
       - name: Upload APK artifact for ${{ matrix.arch }}
         uses: actions/upload-artifact@v4
         with:
           name: rccr-${{ matrix.arch }}
-          path: packages/rccr-*.apk
+          path: output/rccr-*.apk
+          if-no-files-found: error
 
   release:
     needs: build-apk
