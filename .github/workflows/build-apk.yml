@@ -43,7 +43,7 @@ jobs:
 
             echo "=== Installing build dependencies ==="
             apk update
-            apk add alpine-sdk sudo bash
+            apk add alpine-sdk sudo bash dos2unix
 
             echo "=== Creating builder user ==="
             adduser -D builder
@@ -55,9 +55,15 @@ jobs:
             echo "=== Setting up build keys ==="
             su builder -c "abuild-keygen -a -i -n"
 
+            echo "=== Converting line endings ==="
+            dos2unix build-apk.sh
+            dos2unix APKBUILD
+
             echo "=== Preparing build ==="
-            chmod +x build-apk.sh
-            ./build-apk.sh
+            bash build-apk.sh
+
+            echo "=== Changing ownership of build directory ==="
+            chown -R builder:abuild build
 
             echo "=== Building package ==="
             cd build

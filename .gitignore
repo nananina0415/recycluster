@@ -1,0 +1,20 @@
+# Build artifacts
+build/
+output/
+*.tar.gz
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Local settings
+.claude/settings.local.json
