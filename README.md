@@ -1,4 +1,4 @@
-# RCCR (Recycluster)
+# RCCR (ReCyClusteR)
 
 네트워크상의 머신을 자동으로 감지하고 클러스터로 구성하는 셋업 도구입니다.
 
