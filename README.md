@@ -22,11 +22,29 @@
 
 #### GitHub Releases에서 다운로드 (권장)
 
-```bash
-# 최신 릴리스 다운로드
-wget https://github.com/nananina0415/recycluster/releases/latest/download/rccr-0.0.1-r0.apk
+아키텍처에 맞는 패키지를 선택하세요:
 
-# 설치
+```bash
+# x86_64 (일반 PC, 서버)
+wget https://github.com/nananina0415/recycluster/releases/latest/download/rccr-0.0.1-r0.apk
+apk add --allow-untrusted rccr-0.0.1-r0.apk
+
+# aarch64 (64-bit ARM, Raspberry Pi 3/4)
+wget https://github.com/nananina0415/recycluster/releases/latest/download/rccr-0.0.1-r0.apk
+apk add --allow-untrusted rccr-0.0.1-r0.apk
+
+# armhf (32-bit ARM, Raspberry Pi 2/Zero)
+wget https://github.com/nananina0415/recycluster/releases/latest/download/rccr-0.0.1-r0.apk
+apk add --allow-untrusted rccr-0.0.1-r0.apk
+```
+
+또는 아키텍처 자동 감지:
+
+```bash
+# 현재 시스템 아키텍처 확인
+uname -m
+
+# 해당 아키텍처의 APK 다운로드 후 설치
 apk add --allow-untrusted rccr-0.0.1-r0.apk
 ```
 
