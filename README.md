@@ -79,7 +79,7 @@ network_config:
   dns: "1.1.1.1 4.4.4.4"
 
 machines:
-  - name: rpicluster-laptop-1
+  - name: laptop-1
     ip: 192.168.219.201
     role: manager
     containers:
@@ -87,7 +87,7 @@ machines:
       - task_queue
       - runnin_gmate
 
-  - name: rpicluster-rpi3-1
+  - name: rpi3-1
     ip: 192.168.219.202
     role: worker
     containers:
