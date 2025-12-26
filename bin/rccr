@@ -1,0 +1,220 @@
+#!/usr/bin/env python3
+"""
+RCCR (Recycluster) CLI
+APK 패키지로 설치 후 'rccr' 명령어로 실행되는 메인 진입점
+"""
+
+import sys
+import os
+from pathlib import Path
+
+
+def main():
+    """메인 CLI 함수"""
+    # 설치 경로 확인
+    if os.path.exists('/usr/share/rccr'):
+        # APK 패키지로 설치된 경우
+        install_dir = Path('/usr/share/rccr')
+        sys.path.insert(0, str(install_dir / 'lib'))
+    else:
+        # 개발 환경 (로컬)
+        install_dir = Path(__file__).parent.parent
+        sys.path.insert(0, str(install_dir / 'lib'))
+
+    # rccr_setup 모듈 임포트
+    try:
+        from rccr_setup import RCCRSetup
+    except ImportError as e:
+        print(f"오류: RCCR 모듈을 로드할 수 없습니다: {e}")
+        sys.exit(1)
+
+    # 커맨드 파싱
+    if len(sys.argv) < 2:
+        print_usage()
+        sys.exit(1)
+
+    command = sys.argv[1]
+
+    if command == 'setup':
+        run_setup(install_dir)
+    elif command == 'version' or command == '--version' or command == '-v':
+        print_version()
+    elif command == 'help' or command == '--help' or command == '-h':
+        print_help()
+    else:
+        print(f"오류: 알 수 없는 명령어 '{command}'")
+        print_usage()
+        sys.exit(1)
+
+
+def run_setup(install_dir):
+    """셋업 프로세스 실행"""
+    # Root 권한 확인
+    if os.geteuid() != 0:
+        print("오류: 이 명령은 root 권한이 필요합니다.")
+        print("다시 시도: sudo rccr setup")
+        sys.exit(1)
+
+    # 현재 디렉토리에서 cluster_config.yml 찾기
+    config_path = Path.cwd() / 'cluster_config.yml'
+
+    if not config_path.exists():
+        # 현재 디렉토리에 없으면 설치 디렉토리에서 템플릿 복사
+        template_path = install_dir / 'cluster_config.yml'
+        if template_path.exists():
+            print(f"cluster_config.yml 파일이 없습니다.")
+            print(f"템플릿을 현재 디렉토리로 복사합니다...")
+            import shutil
+            shutil.copy(template_path, config_path)
+            print(f"✓ {config_path} 생성됨")
+            print()
+            print("1. cluster_config.yml 파일을 편집하여 클러스터를 구성하세요")
+            print("2. 편집 완료 후 'rccr setup'을 다시 실행하세요")
+            sys.exit(0)
+        else:
+            print("오류: cluster_config.yml 파일을 찾을 수 없습니다.")
+            print("현재 디렉토리에 cluster_config.yml 파일을 생성하세요.")
+            sys.exit(1)
+
+    # 종속성 설치 확인 및 설치
+    install_dependencies()
+
+    # Setup 실행
+    from rccr_setup import RCCRSetup
+    setup = RCCRSetup(str(config_path))
+    exit_code = setup.run()
+
+    if exit_code == 0:
+        # 성공 시 Ansible playbook 실행
+        run_ansible_deployment(install_dir)
+
+    sys.exit(exit_code)
+
+
+def install_dependencies():
+    """필수 종속성 설치"""
+    import subprocess
+
+    print("=================================================================")
+    print("  종속성 확인 중...")
+    print("=================================================================")
+
+    # nmap 확인
+    try:
+        subprocess.run(['nmap', '--version'], capture_output=True, check=True)
+        print("✓ nmap: 설치됨")
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        print("→ nmap 설치 중...")
+        subprocess.run(['apk', 'add', 'nmap'], check=True)
+
+    # ansible 확인
+    try:
+        subprocess.run(['ansible', '--version'], capture_output=True, check=True)
+        print("✓ ansible: 설치됨")
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        print("→ ansible 설치 중...")
+        subprocess.run(['pip3', 'install', 'ansible'], check=True)
+
+    # pyyaml 확인
+    try:
+        import yaml
+        print("✓ pyyaml: 설치됨")
+    except ImportError:
+        print("→ pyyaml 설치 중...")
+        subprocess.run(['pip3', 'install', 'pyyaml'], check=True)
+
+    print()
+
+
+def run_ansible_deployment(install_dir):
+    """Ansible playbook을 실행하여 클러스터 배포"""
+    import subprocess
+
+    print("\n=================================================================")
+    print("  Ansible playbook 실행 중...")
+    print("=================================================================")
+
+    inventory_path = Path.cwd() / 'inventory.yml'
+    playbook_path = install_dir / 'deploy_cluster.playbook'
+
+    if not inventory_path.exists():
+        print("경고: inventory.yml 파일이 생성되지 않았습니다.")
+        return
+
+    if not playbook_path.exists():
+        print("경고: deploy_cluster.playbook 파일을 찾을 수 없습니다.")
+        return
+
+    try:
+        result = subprocess.run(
+            ['ansible-playbook', '-i', str(inventory_path), str(playbook_path)],
+            check=False
+        )
+
+        if result.returncode != 0:
+            print("\n경고: Ansible playbook 실행 중 오류가 발생했습니다.")
+    except Exception as e:
+        print(f"\n오류: Ansible playbook 실행 실패 - {e}")
+
+
+def print_version():
+    """버전 정보 출력"""
+    print("RCCR (Recycluster) v0.0.1")
+
+
+def print_usage():
+    """간단한 사용법 출력"""
+    print("사용법: rccr <command>")
+    print()
+    print("명령어:")
+    print("  setup      클러스터 셋업 시작")
+    print("  version    버전 정보 출력")
+    print("  help       도움말 출력")
+    print()
+    print("예제:")
+    print("  sudo rccr setup")
+
+
+def print_help():
+    """상세 도움말 출력"""
+    print("""
+RCCR (Recycluster) - 클러스터 자동 셋업 도구
+=================================================================
+
+사용법:
+  rccr setup      클러스터 셋업 프로세스 시작
+  rccr version    버전 정보 출력
+  rccr help       이 도움말 출력
+
+셋업 프로세스:
+  1. cluster_config.yml 파일 준비
+     - 없으면 자동으로 템플릿 생성
+     - 클러스터 노드 및 컨테이너 정의
+
+  2. 'sudo rccr setup' 실행
+     - 네트워크 스캔 시작
+     - 대화형 안내에 따라 노드 연결
+
+  3. 자동 배포
+     - 감지된 노드에 Docker 설치
+     - 컨테이너 자동 배포
+
+예제:
+  # 1. 설정 파일 준비
+  mkdir my-cluster
+  cd my-cluster
+  sudo rccr setup  # 템플릿 생성
+
+  # 2. 설정 편집
+  vi cluster_config.yml
+
+  # 3. 셋업 실행
+  sudo rccr setup
+
+자세한 정보:
+  https://github.com/nananina0415/recycluster
+""")
+
+
+if __name__ == '__main__':
+    main()

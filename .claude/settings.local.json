@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git fetch:*)",
+      "Bash(git pull:*)",
+      "Bash(pip search:*)",
+      "Bash(npm search:*)",
+      "Bash(chmod +x \"C:\\Users\\nananina\\.claude-worktrees\\recycluster\\elastic-wozniak\\lib\\rccr_setup.py\")",
+      "Bash(chmod +x \"C:\\Users\\nananina\\.claude-worktrees\\recycluster\\elastic-wozniak\\lib\\network_scanner.py\")",
+      "Bash(chmod +x \"C:\\Users\\nananina\\.claude-worktrees\\recycluster\\elastic-wozniak\\lib\\node_mapper.py\")",
+      "Bash(chmod:*)",
+      "Bash(git add:*)"
+    ]
+  }
+}

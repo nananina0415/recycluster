@@ -1,0 +1,80 @@
+name: Build and Release APK
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    container:
+      image: alpine:latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          apk update
+          apk add alpine-sdk sudo bash
+
+      - name: Create builder user
+        run: |
+          adduser -D builder
+          addgroup builder abuild
+          echo "builder ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+          mkdir -p /var/cache/distfiles
+          chown builder:abuild /var/cache/distfiles
+
+      - name: Setup build keys
+        run: |
+          su builder -c "abuild-keygen -a -i -n"
+
+      - name: Prepare build
+        run: |
+          chmod +x build-apk.sh
+          ./build-apk.sh
+
+      - name: Generate checksums
+        run: |
+          cd build
+          su builder -c "abuild checksum"
+
+      - name: Build package
+        run: |
+          cd build
+          su builder -c "abuild -r"
+
+      - name: Find built package
+        id: find_package
+        run: |
+          PACKAGE=$(find /home/builder/packages -name "rccr-*.apk" | head -n 1)
+          echo "package_path=$PACKAGE" >> $GITHUB_OUTPUT
+          echo "package_name=$(basename $PACKAGE)" >> $GITHUB_OUTPUT
+
+      - name: Upload APK as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rccr-apk
+          path: ${{ steps.find_package.outputs.package_path }}
+
+      - name: Create Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: ${{ steps.find_package.outputs.package_path }}
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Summary
+        run: |
+          echo "## Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- Package: ${{ steps.find_package.outputs.package_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Path: ${{ steps.find_package.outputs.package_path }}" >> $GITHUB_STEP_SUMMARY
+          if [ -n "${{ github.ref_name }}" ]; then
+            echo "- Tag: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          fi
