@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-RCCR (Recycluster) 메인 셋업 스크립트
+RCCR (ReCyClusteR) 메인 셋업 스크립트
 클러스터 노드 감지, 매핑 및 초기화를 담당합니다.
 """
 
@@ -17,7 +17,7 @@ from node_mapper import NodeMapper
 
 
 class RCCRSetup:
-    """RCCR 셋업 메인 클래스"""
+    """ReCyClusteR 셋업 메인 클래스"""
 
     def __init__(self, config_path: str = 'cluster_config.yml'):
         """
@@ -37,7 +37,7 @@ class RCCRSetup:
     def print_banner(self):
         """시작 배너를 출력합니다."""
         print("\n" + "=" * 67)
-        print("  RCCR (Recycluster) Setup")
+        print("  RCCR (ReCyClusteR) Setup")
         print("=" * 67)
 
     def initialize_scanner(self):

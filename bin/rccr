@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-RCCR (Recycluster) CLI
+RCCR (ReCyClusteR) CLI
 APK 패키지로 설치 후 'rccr' 명령어로 실행되는 메인 진입점
 """
 
@@ -35,7 +35,9 @@ def main():
 
     command = sys.argv[1]
 
-    if command == 'setup':
+    if command == 'init':
+        run_init(install_dir)
+    elif command == 'setup':
         run_setup(install_dir)
     elif command == 'version' or command == '--version' or command == '-v':
         print_version()
@@ -45,6 +47,45 @@ def main():
         print(f"오류: 알 수 없는 명령어 '{command}'")
         print_usage()
         sys.exit(1)
+
+
+def run_init(install_dir):
+    """프로젝트 초기화 - 템플릿 파일 생성"""
+    import shutil
+
+    current_dir = Path.cwd()
+    config_path = current_dir / 'cluster_config.yml'
+
+    # 이미 존재하는지 확인
+    if config_path.exists():
+        print("오류: cluster_config.yml 파일이 이미 존재합니다.")
+        print(f"위치: {config_path}")
+        overwrite = input("덮어쓰시겠습니까? (y/n): ").strip().lower()
+        if overwrite != 'y':
+            print("초기화가 취소되었습니다.")
+            sys.exit(0)
+
+    # 템플릿 복사
+    template_path = install_dir / 'cluster_config.yml'
+    if not template_path.exists():
+        print("오류: 템플릿 파일을 찾을 수 없습니다.")
+        sys.exit(1)
+
+    shutil.copy(template_path, config_path)
+
+    print("=================================================================")
+    print("  RCCR 프로젝트 초기화 완료!")
+    print("=================================================================")
+    print()
+    print(f"✓ {config_path} 생성됨")
+    print()
+    print("다음 단계:")
+    print("  1. cluster_config.yml 파일을 편집하여 클러스터를 구성하세요")
+    print("     vi cluster_config.yml")
+    print()
+    print("  2. 편집 완료 후 셋업을 실행하세요")
+    print("     sudo rccr setup")
+    print()
 
 
 def run_setup(install_dir):
@@ -59,22 +100,12 @@ def run_setup(install_dir):
     config_path = Path.cwd() / 'cluster_config.yml'
 
     if not config_path.exists():
-        # 현재 디렉토리에 없으면 설치 디렉토리에서 템플릿 복사
-        template_path = install_dir / 'cluster_config.yml'
-        if template_path.exists():
-            print(f"cluster_config.yml 파일이 없습니다.")
-            print(f"템플릿을 현재 디렉토리로 복사합니다...")
-            import shutil
-            shutil.copy(template_path, config_path)
-            print(f"✓ {config_path} 생성됨")
-            print()
-            print("1. cluster_config.yml 파일을 편집하여 클러스터를 구성하세요")
-            print("2. 편집 완료 후 'rccr setup'을 다시 실행하세요")
-            sys.exit(0)
-        else:
-            print("오류: cluster_config.yml 파일을 찾을 수 없습니다.")
-            print("현재 디렉토리에 cluster_config.yml 파일을 생성하세요.")
-            sys.exit(1)
+        print("오류: cluster_config.yml 파일을 찾을 수 없습니다.")
+        print()
+        print("먼저 프로젝트를 초기화하세요:")
+        print("  rccr init")
+        print()
+        sys.exit(1)
 
     # 종속성 설치 확인 및 설치
     install_dependencies()
@@ -159,7 +190,7 @@ def run_ansible_deployment(install_dir):
 
 def print_version():
     """버전 정보 출력"""
-    print("RCCR (Recycluster) v0.0.1")
+    print("RCCR (ReCyClusteR) v0.0.1")
 
 
 def print_usage():
@@ -167,48 +198,56 @@ def print_usage():
     print("사용법: rccr <command>")
     print()
     print("명령어:")
+    print("  init       프로젝트 초기화 (템플릿 파일 생성)")
     print("  setup      클러스터 셋업 시작")
     print("  version    버전 정보 출력")
     print("  help       도움말 출력")
     print()
     print("예제:")
-    print("  sudo rccr setup")
+    print("  rccr init         # 템플릿 생성")
+    print("  sudo rccr setup   # 셋업 실행")
 
 
 def print_help():
     """상세 도움말 출력"""
     print("""
-RCCR (Recycluster) - 클러스터 자동 셋업 도구
+RCCR (ReCyClusteR) - 클러스터 자동 셋업 도구
 =================================================================
 
 사용법:
+  rccr init       프로젝트 초기화 (템플릿 파일 생성)
   rccr setup      클러스터 셋업 프로세스 시작
   rccr version    버전 정보 출력
   rccr help       이 도움말 출력
 
 셋업 프로세스:
-  1. cluster_config.yml 파일 준비
-     - 없으면 자동으로 템플릿 생성
+  1. 프로젝트 초기화
+     rccr init
+     - cluster_config.yml 템플릿 생성
+
+  2. 설정 파일 편집
+     vi cluster_config.yml
      - 클러스터 노드 및 컨테이너 정의
 
-  2. 'sudo rccr setup' 실행
+  3. 클러스터 셋업 실행
+     sudo rccr setup
      - 네트워크 스캔 시작
      - 대화형 안내에 따라 노드 연결
-
-  3. 자동 배포
      - 감지된 노드에 Docker 설치
      - 컨테이너 자동 배포
 
 예제:
-  # 1. 설정 파일 준비
+  # 1. 작업 디렉토리 생성
   mkdir my-cluster
   cd my-cluster
-  sudo rccr setup  # 템플릿 생성
 
-  # 2. 설정 편집
+  # 2. 프로젝트 초기화
+  rccr init
+
+  # 3. 설정 편집
   vi cluster_config.yml
 
-  # 3. 셋업 실행
+  # 4. 셋업 실행
   sudo rccr setup
 
 자세한 정보:

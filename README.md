@@ -1,4 +1,4 @@
-# RCCR (Recycluster)
+# RCCR (ReCyClusteR)
 
 네트워크상의 머신을 자동으로 감지하고 클러스터로 구성하는 셋업 도구입니다.
 
@@ -60,13 +60,16 @@ mkdir my-cluster
 cd my-cluster
 ```
 
-### 2. 설정 파일 생성 및 편집
+### 2. 프로젝트 초기화
 
 ```bash
-# 템플릿 파일 자동 생성
-sudo rccr setup
+# 템플릿 파일 생성
+rccr init
+```
 
-# 생성된 cluster_config.yml 편집
+### 3. 설정 파일 편집
+
+```bash
 vi cluster_config.yml
 ```
 
@@ -94,13 +97,13 @@ machines:
       - runner
 ```
 
-### 3. 셋업 실행
+### 4. 셋업 실행
 
 ```bash
 sudo rccr setup
 ```
 
-### 4. 대화형 안내에 따라 진행
+### 5. 대화형 안내에 따라 진행
 
 셋업 스크립트가 실행되면 다음과 같은 안내가 표시됩니다:
 
@@ -189,14 +192,17 @@ recycluster/
 ## CLI 명령어
 
 ```bash
+# 프로젝트 초기화 (템플릿 생성)
+rccr init
+
+# 클러스터 셋업
+sudo rccr setup
+
 # 버전 확인
 rccr version
 
 # 도움말
 rccr help
-
-# 클러스터 셋업
-sudo rccr setup
 ```
 
 ## 고급 사용법

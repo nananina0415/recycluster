@@ -2,7 +2,7 @@
 pkgname=rccr
 pkgver=0.0.1
 pkgrel=0
-pkgdesc="Recycluster - Automated cluster setup tool with network discovery"
+pkgdesc="ReCyClusteR - Automated cluster setup tool with network discovery"
 url="https://github.com/nananina0415/recycluster"
 arch="noarch"
 license="MIT"
