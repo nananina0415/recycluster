@@ -12,7 +12,7 @@
 
 ## 요구사항
 
-- Alpine Linux (또는 다른 Linux 배포판)
+- Alpine Linux
 - Root 권한
 - 네트워크 연결
 
