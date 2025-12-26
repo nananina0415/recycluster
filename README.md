@@ -12,11 +12,30 @@
 
 ## 요구사항
 
+### 클러스터 노드 (Alpine Linux)
 - Alpine Linux
-- Root 권한
+- SSH 접근 가능
 - 네트워크 연결
 
+### 셋업 머신 (어디서든 실행 가능)
+- **Docker** (권장) - Windows/Mac/Linux 모두 지원
+- 또는 **Alpine Linux** - APK 패키지 설치
+
 ## 설치
+
+### Docker (권장 - Windows/Mac/Linux 모두 지원)
+
+Docker를 사용하면 **어떤 OS에서든** 클러스터를 셋업할 수 있습니다!
+
+```bash
+# Docker 이미지 다운로드
+docker pull ghcr.io/nananina0415/recycluster:latest
+
+# 또는 로컬에서 빌드
+git clone https://github.com/nananina0415/recycluster.git
+cd recycluster
+docker build -t rccr .
+```
 
 ### Alpine Linux (APK)
 
@@ -84,21 +103,43 @@ sudo apk add --allow-untrusted ~/packages/main/x86_64/rccr-0.0.1-r0.apk
 
 ## 빠른 시작
 
-### 1. 작업 디렉토리 생성
+### Docker 사용 (Windows/Mac/Linux)
 
 ```bash
+# 1. 작업 디렉토리 생성
 mkdir my-cluster
 cd my-cluster
+
+# 2. 프로젝트 초기화
+docker run -it -v ${PWD}:/workspace ghcr.io/nananina0415/recycluster:latest init
+
+# 3. 설정 파일 편집
+notepad cluster_config.yml  # Windows
+# 또는
+vim cluster_config.yml      # Linux/Mac
+
+# 4. 셋업 실행 (네트워크 스캔 및 클러스터 배포)
+docker run -it -v ${PWD}:/workspace --network host ghcr.io/nananina0415/recycluster:latest setup
 ```
 
-### 2. 프로젝트 초기화
+### Alpine Linux 사용
 
 ```bash
-# 템플릿 파일 생성
+# 1. 작업 디렉토리 생성
+mkdir my-cluster
+cd my-cluster
+
+# 2. 프로젝트 초기화
 rccr init
+
+# 3. 설정 파일 편집
+vi cluster_config.yml
+
+# 4. 셋업 실행
+sudo rccr setup
 ```
 
-### 3. 설정 파일 편집
+### 설정 파일 예시
 
 ```bash
 vi cluster_config.yml
