@@ -43,7 +43,7 @@ docker build -t rccr .
 
 아키텍처에 맞는 패키지를 다운로드하세요:
 
-| 아키텍처 | 설명 | 다운로드 |
+| 아키텍처 | 설명 |
 |---------|------|---------|
 | `x86` | 32-bit x86 (구형 PC) |
 | `x86_64` | 64-bit x86 (일반 PC/서버) |
@@ -55,15 +55,15 @@ docker build -t rccr .
 
 ```bash
 # x86_64 (일반 PC/서버)
-wget https://github.com/nananina0415/recycluster/releases/latest/download/rccr-0.0.1-r0-x86_64.apk
+wget https://github.com/nananina0415/recycluster/releases/latest/download/rccr-0.0.2-x86_64.apk
 apk add --allow-untrusted rccr-0.0.1-x86_64.apk
 
 # aarch64 (Raspberry Pi 3/4, 64-bit ARM)
-wget https://github.com/nananina0415/recycluster/releases/latest/download/rccr-0.0.1-r0-aarch64.apk
+wget https://github.com/nananina0415/recycluster/releases/latest/download/rccr-0.0.2-aarch64.apk
 apk add --allow-untrusted rccr-0.0.1-aarch64.apk
 
 # armhf (Raspberry Pi 1/Zero)
-wget https://github.com/nananina0415/recycluster/releases/latest/download/rccr-0.0.1-r0-armhf.apk
+wget https://github.com/nananina0415/recycluster/releases/latest/download/rccr-0.0.2-armhf.apk
 apk add --allow-untrusted rccr-0.0.1-armhf.apk
 ```
 
@@ -98,7 +98,7 @@ cd recycluster
 cd build
 abuild checksum
 abuild -r
-sudo apk add --allow-untrusted ~/packages/main/x86_64/rccr-0.0.1-r0.apk
+sudo apk add --allow-untrusted ~/packages/main/x86_64/rccr-0.0.2.apk
 ```
 
 ## 빠른 시작
