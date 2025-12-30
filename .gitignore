@@ -18,3 +18,7 @@ __pycache__/
 
 # Local settings
 .claude/settings.local.json
+
+# SSH temporary keys (generated during build)
+.rccr/ssh_temp_key
+.rccr/ssh_temp_key.pub

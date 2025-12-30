@@ -1,17 +1,140 @@
 ---
-# 마스터 오케스트레이터 플레이북
-# 이 파일은 각 Layer의 메인 플레이북을 순서대로 호출합니다
+# ═══════════════════════════════════════════════════════════════════
+# RCCR Master Setup Playbook
+# ═══════════════════════════════════════════════════════════════════
+# This is the main entry point for RCCR cluster setup.
+# It orchestrates all setup phases in the correct order.
+#
+# Usage:
+#   ansible-playbook setup.playbook
+#
+# Configuration:
+#   cluster_config.yml (single source of truth)
+# ═══════════════════════════════════════════════════════════════════
 
-# 1단계: 머신 레이어 - OS, 네트워크, Python, SSH 등 기본 설정
-- name: "Run Machine Layer Setup"
+- name: RCCR Setup - Display Banner
+  hosts: localhost
+  gather_facts: yes
+  become: no
+
+  tasks:
+    - name: Display RCCR banner
+      ansible.builtin.debug:
+        msg: |
+
+          ╔═══════════════════════════════════════════════════════════════════╗
+          ║                                                                   ║
+          ║            RCCR (ReCyClusteR) Cluster Setup v0.0.2               ║
+          ║                  Alpine Linux Cluster Manager                    ║
+          ║                                                                   ║
+          ╚═══════════════════════════════════════════════════════════════════╝
+
+          Starting automated cluster setup...
+
+          Configuration: cluster_config.yml
+          Date: {{ ansible_date_time.iso8601 }}
+
+    - name: Load cluster configuration
+      ansible.builtin.include_vars:
+        file: cluster_config.yml
+      register: cluster_config
+
+    - name: Validate cluster configuration
+      ansible.builtin.assert:
+        that:
+          - machines is defined
+          - machines | length > 0
+          - network_config is defined
+          - network_config.subnet is defined
+        fail_msg: "Invalid cluster_config.yml - please check your configuration"
+        success_msg: "✓ Configuration valid"
+
+    - name: Display cluster info
+      ansible.builtin.debug:
+        msg: |
+          Cluster Configuration:
+          - Name: {{ cluster_name | default('rccr-cluster') }}
+          - Machines: {{ machines | length }}
+          - Subnet: {{ network_config.subnet }}
+          - Hostname Filter: {{ network_config.hostname_filter | default('ReCyClusteR') }}
+
+# ═══════════════════════════════════════════════════════════════════
+# Phase 1: Network Scanning and Node Discovery
+# ═══════════════════════════════════════════════════════════════════
+
+- name: "Phase 1: Network Scanning"
+  ansible.builtin.import_playbook: playbooks/01_scan_network.playbook
+
+# ═══════════════════════════════════════════════════════════════════
+# Phase 2: SSH Key Rotation (Security)
+# ═══════════════════════════════════════════════════════════════════
+
+- name: "Phase 2: SSH Key Rotation"
+  ansible.builtin.import_playbook: playbooks/02_rotate_ssh_keys.playbook
+
+# ═══════════════════════════════════════════════════════════════════
+# Phase 3: Machine Layer Configuration
+# ═══════════════════════════════════════════════════════════════════
+
+- name: "Phase 3: Machine Layer"
   ansible.builtin.import_playbook: machine_layer/main.playbook
 
-# 2단계: 오케스트레이션 레이어 - Docker, Docker Swarm 등 설정
-# 추후 구현 예정
-# - name: "Run Orchestration Layer Setup"
-#   ansible.builtin.import_playbook: orchestration_layer/main.playbook
+# ═══════════════════════════════════════════════════════════════════
+# Phase 4: Orchestration Layer (Optional)
+# ═══════════════════════════════════════════════════════════════════
 
-# 3단계: 컨테이너 레이어 - 실제 서비스 컨테이너 배포
-# 추후 구현 예정
-# - name: "Run Container Layer Setup"
-#   ansible.builtin.import_playbook: container_layer/main.playbook
+- name: "Phase 4: Orchestration Layer"
+  ansible.builtin.import_playbook: orchestration_layer/main.playbook
+  when: orchestration_layer_enabled | default(false)
+
+# ═══════════════════════════════════════════════════════════════════
+# Phase 5: Container Layer (Optional)
+# ═══════════════════════════════════════════════════════════════════
+
+- name: "Phase 5: Container Layer"
+  ansible.builtin.import_playbook: container_layer/main.playbook
+  when: container_layer_enabled | default(false)
+
+# ═══════════════════════════════════════════════════════════════════
+# Completion
+# ═══════════════════════════════════════════════════════════════════
+
+- name: RCCR Setup - Completion
+  hosts: localhost
+  gather_facts: no
+  become: no
+
+  tasks:
+    - name: Display completion message
+      ansible.builtin.debug:
+        msg: |
+
+          ╔═══════════════════════════════════════════════════════════════════╗
+          ║                                                                   ║
+          ║              ✓ RCCR Cluster Setup Complete!                      ║
+          ║                                                                   ║
+          ╚═══════════════════════════════════════════════════════════════════╝
+
+          Your cluster is ready!
+
+          Next steps:
+          1. Verify cluster connectivity:
+             ansible all -m ping
+
+          2. Check node information:
+             ansible all -m setup --tree /tmp/facts
+
+          3. View cluster inventory:
+             cat inventory.yml
+
+          4. Deploy containers (if configured):
+             ansible-playbook container_layer/main.playbook
+
+          5. Monitor cluster:
+             ansible all -a "docker ps"
+
+          Configuration files:
+          - cluster_config.yml (cluster definition)
+          - inventory.yml (Ansible inventory)
+
+          For help: cat README.md
