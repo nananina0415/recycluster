@@ -1,0 +1,237 @@
+name: Build and Release OS Images
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to build (e.g., 0.0.2)'
+        required: false
+        default: '0.0.2'
+
+permissions:
+  contents: write
+
+jobs:
+  build-os-images:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x86_64, aarch64]  # Start with common architectures
+        type: [control, target]
+        include:
+          - arch: x86_64
+            platform: linux/amd64
+          - arch: aarch64
+            platform: linux/arm64
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: all
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Extract version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Generate SSH temporary keys
+        run: |
+          mkdir -p .rccr
+          ssh-keygen -t rsa -b 4096 -f .rccr/ssh_temp_key -N "" -C "rccr-temporary-key"
+          chmod 600 .rccr/ssh_temp_key
+          chmod 644 .rccr/ssh_temp_key.pub
+          echo "✓ SSH keys generated"
+
+      - name: Display build info
+        run: |
+          echo "╔═══════════════════════════════════════════════════════════════════╗"
+          echo "║           Building RCCR OS Image                                  ║"
+          echo "╚═══════════════════════════════════════════════════════════════════╝"
+          echo ""
+          echo "Architecture: ${{ matrix.arch }}"
+          echo "Type: ${{ matrix.type }}"
+          echo "Version: ${{ steps.version.outputs.VERSION }}"
+          echo "Platform: ${{ matrix.platform }}"
+          echo ""
+
+      - name: Build OS image
+        run: |
+          bash scripts/build-single-image.sh \
+            ${{ matrix.arch }} \
+            ${{ matrix.type }} \
+            ${{ steps.version.outputs.VERSION }}
+
+      - name: List built files
+        run: |
+          echo "Built files:"
+          find build/${{ matrix.arch }}-${{ matrix.type }} -type f -ls
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rccr-${{ steps.version.outputs.VERSION }}-${{ matrix.arch }}-${{ matrix.type }}
+          path: |
+            build/${{ matrix.arch }}-${{ matrix.type }}/rccr-*.iso
+            build/${{ matrix.arch }}-${{ matrix.type }}/rccr-*.img
+            build/${{ matrix.arch }}-${{ matrix.type }}/SHA256SUMS
+          if-no-files-found: error
+          retention-days: 30
+
+  create-release:
+    needs: build-os-images
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Display artifact structure
+        run: |
+          echo "Artifacts structure:"
+          ls -R artifacts/
+
+      - name: Prepare release files
+        run: |
+          mkdir -p release
+          find artifacts -type f \( -name "*.iso" -o -name "*.img" \) -exec cp {} release/ \;
+
+          # Generate master checksum
+          cd release
+          sha256sum * > SHA256SUMS
+          cd ..
+
+          echo "Release files:"
+          ls -lh release/
+
+      - name: Extract version
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Generate release notes
+        id: release_notes
+        run: |
+          cat > release_notes.md <<'EOF'
+          # RCCR v${{ steps.version.outputs.VERSION }}
+
+          ## 🎉 Alpine Linux Cluster Setup - OS Image Release
+
+          이 릴리스는 즉시 사용 가능한 부팅 이미지를 제공합니다.
+
+          ### 📦 제공 이미지
+
+          **Control Node** (클러스터 관리 노드):
+          - Python3, Ansible, nmap 사전 설치
+          - SSH 임시 키 포함
+          - 호스트명: `ReCyClusteR-Control`
+
+          **Target Node** (워커 노드):
+          - Python3, Docker 사전 설치
+          - SSH 서버 자동 시작
+          - 호스트명: `ReCyClusteR-Target`
+
+          ### 🏗️ 지원 아키텍처
+
+          - `x86_64`: 64-bit x86 (현대 PC, 서버)
+          - `aarch64`: 64-bit ARM (Raspberry Pi 3/4/5, ARM64 서버)
+
+          ### 🚀 사용 방법
+
+          1. **이미지 다운로드**
+             ```bash
+             # Control 노드용
+             wget https://github.com/nananina0415/recycluster/releases/download/v${{ steps.version.outputs.VERSION }}/rccr-${{ steps.version.outputs.VERSION }}-x86_64-control.iso
+
+             # Target 노드용
+             wget https://github.com/nananina0415/recycluster/releases/download/v${{ steps.version.outputs.VERSION }}/rccr-${{ steps.version.outputs.VERSION }}-x86_64-target.iso
+             ```
+
+          2. **부팅 미디어 생성**
+             ```bash
+             # USB/SD 카드에 플래시
+             dd if=rccr-*.iso of=/dev/sdX bs=4M status=progress
+             ```
+
+          3. **부팅 및 설정**
+             ```bash
+             # Control 노드 부팅 후
+             cd /root/rccr
+             vi cluster_config.yml  # 설정 편집
+             ansible-playbook setup.playbook
+             ```
+
+          ### 🔐 보안
+
+          ⚠️ **중요**: 이미지에 포함된 SSH 키는 임시 키입니다.
+          - `ansible-playbook setup.playbook` 실행 시 자동으로 새 키로 교체됩니다.
+          - 임시 키는 모든 노드에서 자동 삭제됩니다.
+
+          ### 📄 문서
+
+          - [README.md](https://github.com/nananina0415/recycluster/blob/main/README.md)
+          - [IMAGE_BUILD_STRATEGY.md](https://github.com/nananina0415/recycluster/blob/main/IMAGE_BUILD_STRATEGY.md)
+          - [DISTRIBUTION.md](https://github.com/nananina0415/recycluster/blob/main/DISTRIBUTION.md)
+
+          ### 🔍 체크섬 검증
+
+          ```bash
+          sha256sum -c SHA256SUMS
+          ```
+
+          ---
+
+          **전체 변경사항**: [CHANGELOG](https://github.com/nananina0415/recycluster/compare/v0.0.1...v${{ steps.version.outputs.VERSION }})
+          EOF
+
+          cat release_notes.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: RCCR v${{ steps.version.outputs.VERSION }}
+          body_path: release_notes.md
+          files: release/*
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Display summary
+        run: |
+          echo "## 🎉 Release Created Successfully" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version**: v${{ steps.version.outputs.VERSION }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📦 Released Files" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| File | Size |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|------|" >> $GITHUB_STEP_SUMMARY
+          cd release
+          for file in *.iso *.img; do
+            if [ -f "$file" ]; then
+              size=$(ls -lh "$file" | awk '{print $5}')
+              echo "| $file | $size |" >> $GITHUB_STEP_SUMMARY
+            fi
+          done
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Release URL**: ${{ github.server_url }}/${{ github.repository }}/releases/tag/v${{ steps.version.outputs.VERSION }}" >> $GITHUB_STEP_SUMMARY
