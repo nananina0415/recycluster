@@ -62,8 +62,11 @@ OUTPUT_DIR="$PROJECT_ROOT/build/$ARCH-$TYPE"
 ALPINE_VERSION="3.19"
 
 # Architecture mapping for Alpine and Docker
-# Only linux-lts supported architectures
 case "$ARCH" in
+    x86)
+        PLATFORM="linux/386"
+        ALPINE_ARCH="x86"
+        ;;
     x86_64)
         PLATFORM="linux/amd64"
         ALPINE_ARCH="x86_64"
@@ -72,13 +75,20 @@ case "$ARCH" in
         PLATFORM="linux/arm64"
         ALPINE_ARCH="aarch64"
         ;;
+    rpi-aarch64)
+        PLATFORM="linux/arm64"
+        ALPINE_ARCH="aarch64"
+        ;;
     armv7)
         PLATFORM="linux/arm/v7"
         ALPINE_ARCH="armv7"
         ;;
+    armhf)
+        PLATFORM="linux/arm/v6"
+        ALPINE_ARCH="armhf"
+        ;;
     *)
         print_error "Unsupported architecture: $ARCH"
-        print_error "Supported: x86_64, aarch64, armv7"
         exit 1
         ;;
 esac

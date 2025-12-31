@@ -6,7 +6,7 @@ profile_rccr_control() {
 		SSH keys are temporary and auto-rotated on first setup"
 	profile_abbrev="rccr-control"
 	image_ext="iso"
-	arch="x86_64 aarch64 armv7"  # Only archs with linux-lts
+	arch="x86 x86_64 aarch64 armv7 armhf"
 	output_format="iso"
 	kernel_flavors="lts"
 	kernel_cmdline="modules=loop,squashfs,sd-mod,usb-storage quiet"

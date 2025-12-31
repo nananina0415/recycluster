@@ -20,15 +20,21 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        arch: [x86_64, aarch64, armv7]  # Only architectures with linux-lts support
+        arch: [x86, x86_64, aarch64, rpi-aarch64, armv7, armhf]
         type: [control, target]
         include:
+          - arch: x86
+            platform: linux/386
           - arch: x86_64
             platform: linux/amd64
           - arch: aarch64
             platform: linux/arm64
+          - arch: rpi-aarch64
+            platform: linux/arm64
           - arch: armv7
             platform: linux/arm/v7
+          - arch: armhf
+            platform: linux/arm/v6
 
     steps:
       - name: Checkout code
