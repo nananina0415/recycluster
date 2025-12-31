@@ -13,9 +13,10 @@ profile_rccr_target() {
 	modloop_sign=no  # Disable kernel module signing (no private key)
 	kernel_addons=""  # Disable xtables-addons (not available for rpi kernel)
 
-	# Use Raspberry Pi kernel for ARM architectures
-	case "$ARCH" in
-		armhf|armv7|aarch64)
+	# Use Raspberry Pi kernel for Raspberry Pi architectures
+	# RCCR_ARCH is passed from build script (e.g., rpi-aarch64, armhf, armv7)
+	case "$RCCR_ARCH" in
+		rpi-aarch64|armhf|armv7)
 			kernel_flavors="rpi"
 			;;
 		*)
