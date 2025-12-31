@@ -51,7 +51,13 @@
 
     - name: Display initial network state
       ansible.builtin.debug:
-        msg: "Initial scan found {{ initial_hosts | length }} active hosts on network"
+        msg: |
+          Initial scan found {{ initial_hosts | length }} active hosts on network
+
+          Active IPs:
+          {% for ip in initial_hosts %}
+          - {{ ip }}
+          {% endfor %}
 
     - name: Display machine detection instructions
       ansible.builtin.debug:
@@ -107,24 +113,18 @@
         msg: "User cancelled the setup"
       when: continue_confirmation.user_input | lower not in ['yes', 'y']
 
-    - name: Update cluster_config.yml with detected IPs
-      ansible.builtin.lineinfile:
-        path: ../cluster_config.yml
-        regexp: "^(\\s+)detected_ip:.*# {{ item.name }}$"
-        line: "\\1detected_ip: {{ item.detected_ip }}  # {{ item.name }}"
-        backrefs: yes
+    - name: Add detected machines to inventory (runtime only)
+      ansible.builtin.add_host:
+        name: "{{ item.detected_ip }}"
+        groups: "{{ item.role }}"
+        ansible_host: "{{ item.detected_ip }}"
+        ansible_user: root
+        machine_name: "{{ item.name }}"
+        machine_role: "{{ item.role }}"
       loop: "{{ detected_machines }}"
       when: item.detected_ip != ''
       loop_control:
         label: "{{ item.name }}: {{ item.detected_ip }}"
-
-    - name: Generate Ansible inventory
-      ansible.builtin.template:
-        src: ../templates/inventory.yml.j2
-        dest: ../inventory.yml
-        mode: '0644'
-      vars:
-        all_machines: "{{ detected_machines }}"
 
     - name: Display completion message
       ansible.builtin.debug:
@@ -133,7 +133,7 @@
           ║            Network Scanning Complete                             ║
           ╚═══════════════════════════════════════════════════════════════════╝
 
-          ✓ cluster_config.yml updated with detected IPs
-          ✓ inventory.yml generated
+          ✓ Machines added to runtime inventory (no files created)
+          ✓ Ready for next phase
 
           Next: SSH key rotation
