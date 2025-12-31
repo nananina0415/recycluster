@@ -138,7 +138,7 @@ System Information:
 Status:
   ✓ SSH Server: Running
   ✓ Docker Engine: Running
-  ✓ Avahi (mDNS): Advertising hostname
+  ✓ Hostname: ReCyClusteR-Node
 
 This node is ready to be managed by the Control Node.
 Waiting for Ansible configuration from the cluster manager...

@@ -616,7 +616,7 @@ tar -c -C "$tmp" etc root | gzip -9n > "$HOSTNAME".apkovl.tar.gz
         msg: |
           ╔═══════════════════════════════════════════════════╗
           ║                                                   ║
-          ║   RCCR (ReCyClusteR) v0.0.2                      ║
+          ║   RCCR (ReCyClusteR) v0.0.4                      ║
           ║   Alpine Linux Cluster Setup                     ║
           ║                                                   ║
           ╚═══════════════════════════════════════════════════╝
@@ -677,11 +677,11 @@ set -e
 
 ARCH=$1
 TYPE=$2  # control 또는 target
-VERSION=${3:-0.0.2}
+VERSION=${3:-0.0.4}
 
 if [ -z "$ARCH" ] || [ -z "$TYPE" ]; then
     echo "Usage: $0 <arch> <control|target> [version]"
-    echo "Example: $0 x86_64 control 0.0.2"
+    echo "Example: $0 x86_64 control 0.0.4"
     exit 1
 fi
 
@@ -756,7 +756,7 @@ echo "✓ Build complete: $OUTPUT_DIR/rccr-${VERSION}-${ARCH}-${TYPE}.*"
 #!/bin/bash
 set -e
 
-VERSION=${1:-0.0.2}
+VERSION=${1:-0.0.4}
 
 ARCHS=("x86" "x86_64" "aarch64" "rpi-aarch64" "armv7" "armhf")
 TYPES=("control" "target")
@@ -850,10 +850,10 @@ ssh_config:
 ssh-keygen -t rsa -b 4096 -f .rccr/ssh_temp_key -N ""
 
 # 모든 이미지 빌드
-bash scripts/build-all-images.sh 0.0.2
+bash scripts/build-all-images.sh 0.0.4
 
 # 특정 이미지만 빌드
-bash scripts/build-single-image.sh x86_64 control 0.0.2
+bash scripts/build-single-image.sh x86_64 control 0.0.4
 ```
 
 ### 2. 이미지 사용 (사용자)
