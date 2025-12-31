@@ -183,32 +183,39 @@ docker run --rm --privileged \
 
         echo ''
         echo '═══════════════════════════════════════════════════════════════════'
-        echo 'Downloading alpine-make-vm-image...'
+        echo 'Downloading Alpine aports (for mkimage.sh)...'
         echo '═══════════════════════════════════════════════════════════════════'
-        git clone --depth 1 https://gitlab.alpinelinux.org/alpine/alpine-make-vm-image.git /build
-        cd /build
+        git clone --depth 1 --branch ${ALPINE_VERSION}-stable \
+            https://gitlab.alpinelinux.org/alpine/aports.git /aports
+        cd /aports/scripts
 
         echo ''
         echo '═══════════════════════════════════════════════════════════════════'
-        echo 'Copying profile and overlay script...'
+        echo 'Setting up profile...'
         echo '═══════════════════════════════════════════════════════════════════'
-        mkdir -p profiles
-        cp /profile/profile.conf profiles/rccr-${TYPE}.conf
+
+        # Copy overlay generator script
         cp /profile/genapkovl-*.sh ./
         chmod +x genapkovl-*.sh
+
+        # Copy and source profile
+        cp /profile/profile.conf /tmp/profile_rccr_${TYPE}.sh
+        source /tmp/profile_rccr_${TYPE}.sh
+
+        echo \"Profile loaded: rccr_${TYPE}\"
 
         echo ''
         echo '═══════════════════════════════════════════════════════════════════'
         echo 'Building ISO image...'
         echo '═══════════════════════════════════════════════════════════════════'
-        sh mkimage.sh \
-            --tag ${ALPINE_VERSION} \
+
+        # Run mkimage.sh with our profile
+        sh mkimage.sh --tag ${ALPINE_VERSION} \
             --outdir /output \
-            --arch ${ARCH} \
-            --profile rccr-${TYPE} \
+            --arch ${ARCH//-/_} \
             --repository http://dl-cdn.alpinelinux.org/alpine/v${ALPINE_VERSION}/main \
             --repository http://dl-cdn.alpinelinux.org/alpine/v${ALPINE_VERSION}/community \
-            || true
+            --profile rccr_${TYPE}
 
         echo ''
         echo '═══════════════════════════════════════════════════════════════════'
@@ -218,16 +225,12 @@ docker run --rm --privileged \
         ls -lh
 
         # Find and rename ISO
-        if ls alpine-rccr-${TYPE}-*.iso 1> /dev/null 2>&1; then
-            mv alpine-rccr-${TYPE}-*.iso rccr-${VERSION}-${ARCH}-${TYPE}.iso
-            echo \"✓ Renamed to: rccr-${VERSION}-${ARCH}-${TYPE}.iso\"
-        fi
-
-        # Find and rename IMG
-        if ls alpine-rccr-${TYPE}-*.img 1> /dev/null 2>&1; then
-            mv alpine-rccr-${TYPE}-*.img rccr-${VERSION}-${ARCH}-${TYPE}.img
-            echo \"✓ Renamed to: rccr-${VERSION}-${ARCH}-${TYPE}.img\"
-        fi
+        for file in *.iso; do
+            if [ -f \"\$file\" ]; then
+                mv \"\$file\" rccr-${VERSION}-${ARCH}-${TYPE}.iso
+                echo \"✓ Renamed to: rccr-${VERSION}-${ARCH}-${TYPE}.iso\"
+            fi
+        done
 
         echo ''
         echo '═══════════════════════════════════════════════════════════════════'
