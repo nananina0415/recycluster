@@ -46,9 +46,40 @@
       New hosts detected: {{ new_hosts }}
   when: true  # Set to false to disable debugging
 
+- name: Check hostname for each new IP via SSH
+  ansible.builtin.command:
+    cmd: ssh -o StrictHostKeyChecking=no -o ConnectTimeout=2 -o BatchMode=yes root@{{ item }} 'hostname'
+  register: hostname_checks
+  loop: "{{ new_hosts }}"
+  failed_when: false
+  changed_when: false
+  when: new_hosts | length > 0
+
+- name: Filter IPs with correct hostname
+  ansible.builtin.set_fact:
+    valid_hosts: "{{ hostname_checks.results |
+      selectattr('rc', 'equalto', 0) |
+      selectattr('stdout', 'search', 'ReCyClusteR-Node') |
+      map(attribute='item') |
+      list }}"
+  when: new_hosts | length > 0
+
+- name: Debug - Show hostname check results
+  ansible.builtin.debug:
+    msg: |
+      ═══════════════════════════════════════════════════════════════════
+      Hostname Check Results (via SSH):
+      ═══════════════════════════════════════════════════════════════════
+      {% for result in hostname_checks.results %}
+      {{ result.item }}: {{ result.stdout | trim if result.rc == 0 else 'SSH connection failed' }}
+      {% endfor %}
+
+      Valid hosts (ReCyClusteR-Node): {{ valid_hosts | default([]) }}
+  when: new_hosts | length > 0 and true  # Set to false to disable debugging
+
 - name: Extract new host IP
   ansible.builtin.set_fact:
-    new_host_ip: "{{ new_hosts[0] if new_hosts | length > 0 else '' }}"
+    new_host_ip: "{{ valid_hosts[0] if (new_hosts | length > 0 and valid_hosts | default([]) | length > 0) else '' }}"
 
 - name: Display detected host
   ansible.builtin.debug:
