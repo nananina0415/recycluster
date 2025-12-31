@@ -228,7 +228,8 @@ docker run --rm --privileged \
 
         # Run mkimage.sh with our profile
         # mkimage.sh will auto-discover mkimg.rccr-*.sh and call profile_rccr_*()
-        sh mkimage.sh \
+        # Disable signing (we don't have private keys)
+        SUDO_APK=abuild-apk APKKEY= sh mkimage.sh \
             --tag ${ALPINE_VERSION} \
             --outdir /output \
             --arch ${ALPINE_ARCH} \
