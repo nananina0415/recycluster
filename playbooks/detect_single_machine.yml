@@ -24,10 +24,34 @@
   register: new_scan
   changed_when: false
 
-- name: Debug nmap output
+- name: Debug - Show full nmap output
   ansible.builtin.debug:
-    msg: "{{ new_scan.stdout_lines }}"
-  when: false  # Set to true for debugging
+    msg: |
+      ═══════════════════════════════════════════════════════════════════
+      NMAP RAW OUTPUT (all lines):
+      ═══════════════════════════════════════════════════════════════════
+      {% for line in new_scan.stdout_lines %}
+      {{ loop.index }}: {{ line }}
+      {% endfor %}
+  when: true  # Set to false to disable debugging
+
+- name: Debug - Show lines matching "Host:"
+  ansible.builtin.debug:
+    msg: |
+      ═══════════════════════════════════════════════════════════════════
+      Lines starting with "Host:":
+      ═══════════════════════════════════════════════════════════════════
+      {% for line in new_scan.stdout_lines %}
+      {% if line.startswith('Host:') %}
+      {{ line }}
+      {% endif %}
+      {% endfor %}
+  when: true  # Set to false to disable debugging
+
+- name: Debug - Show hostname filter
+  ansible.builtin.debug:
+    msg: "Looking for hostname containing: '{{ hostname_filter }}'"
+  when: true  # Set to false to disable debugging
 
 - name: Parse new scan results
   ansible.builtin.set_fact:
@@ -36,10 +60,17 @@
       map('regex_replace', '^Host: ([0-9.]+) \\(([^)]+)\\).*$', '\\1,\\2') |
       list }}"
 
-- name: Debug parsed hosts
+- name: Debug - Show parsed results
   ansible.builtin.debug:
-    msg: "Parsed hosts: {{ current_hosts }}"
-  when: false  # Set to true for debugging
+    msg: |
+      ═══════════════════════════════════════════════════════════════════
+      PARSED RESULTS:
+      ═══════════════════════════════════════════════════════════════════
+      Found {{ current_hosts | length }} matching hosts
+      {% for host in current_hosts %}
+      {{ loop.index }}. {{ host }}
+      {% endfor %}
+  when: true  # Set to false to disable debugging
 
 - name: Extract new host IP and hostname
   ansible.builtin.set_fact:
