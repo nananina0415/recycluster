@@ -5,7 +5,7 @@
 
 HOSTNAME="$1"
 if [ -z "$HOSTNAME" ]; then
-	HOSTNAME="ReCyClusteR-Target"
+	HOSTNAME="ReCyClusteR-Node"
 fi
 
 cleanup() {
