@@ -151,30 +151,6 @@ ssh_args = -o ControlMaster=auto -o ControlPersist=60s
 EOF
 
 # ===================================================================
-# Avahi Configuration (mDNS)
-# ===================================================================
-
-mkdir -p "$tmp"/etc/avahi
-cat > "$tmp"/etc/avahi/avahi-daemon.conf <<'EOF'
-[server]
-host-name=ReCyClusteR-Node
-domain-name=local
-use-ipv4=yes
-use-ipv6=no
-allow-interfaces=eth0
-deny-interfaces=docker0
-
-[publish]
-publish-addresses=yes
-publish-hinfo=yes
-publish-workstation=yes
-publish-domain=yes
-
-[reflector]
-enable-reflector=no
-EOF
-
-# ===================================================================
 # Docker Configuration
 # ===================================================================
 
@@ -206,7 +182,6 @@ cat > "$tmp"/etc/local.d/rccr-init.start <<'INITEOF'
 sleep 2
 
 # Ensure services are running
-rc-service avahi-daemon start 2>/dev/null || true
 rc-service sshd start 2>/dev/null || true
 rc-service docker start 2>/dev/null || true
 
@@ -232,7 +207,6 @@ Quick Start:
 
 Available Commands:
   - ansible-playbook: Run cluster automation
-  - nmap: Network scanning
   - docker: Container management
 
 Configuration: /root/rccr/cluster_config.yml
@@ -256,14 +230,8 @@ openssh
 openssh-client
 python3
 py3-yaml
-nmap
 ansible
 docker
-avahi
-bash
-git
-curl
-wget
 sudo
 EOF
 
@@ -274,7 +242,6 @@ EOF
 # Enable services
 rc_add sshd default
 rc_add docker default
-rc_add avahi-daemon default
 rc_add local default
 
 # ===================================================================

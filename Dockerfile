@@ -10,12 +10,8 @@ RUN apk add --no-cache \
     openssh-client \
     openssh-keygen \
     ansible \
-    bash \
     python3 \
     py3-yaml \
-    git \
-    curl \
-    iputils \
     && rm -rf /var/cache/apk/*
 
 # Create application directory
