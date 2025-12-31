@@ -1,0 +1,66 @@
+---
+# Detect a single machine task (called by loop)
+- name: Prompt user to connect machine
+  ansible.builtin.pause:
+    prompt: |
+
+      ═══════════════════════════════════════════════════════════════════
+      Machine {{ idx + 1 }}/{{ total_machines }}
+      ═══════════════════════════════════════════════════════════════════
+      Name: {{ machine.name }}
+      Role: {{ machine.role }}
+      Expected IP: {{ machine.ip }}
+
+      Please:
+      1. Power on the machine
+      2. Wait for it to boot (LED should be solid/blinking)
+      3. Press ENTER when ready to scan...
+
+  register: user_confirmation
+
+- name: Scan network for new hosts
+  ansible.builtin.command:
+    cmd: nmap -sn -oG - {{ network_config.subnet }}
+  register: new_scan
+  changed_when: false
+
+- name: Parse new scan results
+  ansible.builtin.set_fact:
+    current_hosts: "{{ new_scan.stdout_lines |
+      select('match', '^Host:.*' + hostname_filter) |
+      map('regex_findall', 'Host: ([0-9.]+) \\(([^)]+)\\)') |
+      list }}"
+
+- name: Extract new host IP
+  ansible.builtin.set_fact:
+    new_host_ip: "{{ current_hosts[0][0][0] if current_hosts | length > 0 and current_hosts[0] | length > 0 else '' }}"
+    new_host_name: "{{ current_hosts[0][0][1] if current_hosts | length > 0 and current_hosts[0] | length > 0 else '' }}"
+
+- name: Display detected host
+  ansible.builtin.debug:
+    msg: |
+      ✓ Host detected!
+      IP: {{ new_host_ip }}
+      Hostname: {{ new_host_name }}
+      Mapping to: {{ machine.name }}
+  when: new_host_ip != ''
+
+- name: Warn if no host detected
+  ansible.builtin.debug:
+    msg: |
+      ⚠ No new host with hostname '{{ hostname_filter }}' detected.
+      Please check:
+      - Machine is powered on
+      - Network cable is connected
+      - Machine hostname is set to {{ hostname_filter }}-Node
+  when: new_host_ip == ''
+
+- name: Update machine with detected IP
+  ansible.builtin.set_fact:
+    detected_machines: "{{ detected_machines + [machine | combine({'detected_ip': new_host_ip})] }}"
+  when: new_host_ip != ''
+
+- name: Add to initial hosts (prevent re-detection)
+  ansible.builtin.set_fact:
+    initial_hosts: "{{ initial_hosts + [new_host_ip] }}"
+  when: new_host_ip != ''
