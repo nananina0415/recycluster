@@ -18,9 +18,9 @@
 
   register: user_confirmation
 
-- name: Scan network for new hosts
+- name: Scan network for new hosts (with DNS resolution)
   ansible.builtin.command:
-    cmd: nmap -sn -oG - {{ network_config.subnet }}
+    cmd: nmap -sn -R -oG - {{ network_config.subnet }}
   register: new_scan
   changed_when: false
 

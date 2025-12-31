@@ -10,6 +10,8 @@ RUN apk add --no-cache \
     openssh-client \
     openssh-keygen \
     nmap \
+    avahi \
+    avahi-tools \
     ansible \
     bash \
     python3 \
