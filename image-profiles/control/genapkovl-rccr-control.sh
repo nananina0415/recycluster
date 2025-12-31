@@ -65,7 +65,7 @@ HostKey /etc/ssh/ssh_host_ed25519_key
 # Authentication
 PermitRootLogin yes
 PubkeyAuthentication yes
-PasswordAuthentication no
+PasswordAuthentication yes
 PermitEmptyPasswords no
 ChallengeResponseAuthentication no
 
@@ -151,30 +151,6 @@ ssh_args = -o ControlMaster=auto -o ControlPersist=60s
 EOF
 
 # ===================================================================
-# Avahi Configuration (mDNS)
-# ===================================================================
-
-mkdir -p "$tmp"/etc/avahi
-cat > "$tmp"/etc/avahi/avahi-daemon.conf <<'EOF'
-[server]
-host-name=ReCyClusteR-Node
-domain-name=local
-use-ipv4=yes
-use-ipv6=no
-allow-interfaces=eth0
-deny-interfaces=docker0
-
-[publish]
-publish-addresses=yes
-publish-hinfo=yes
-publish-workstation=yes
-publish-domain=yes
-
-[reflector]
-enable-reflector=no
-EOF
-
-# ===================================================================
 # Docker Configuration
 # ===================================================================
 
@@ -206,9 +182,51 @@ cat > "$tmp"/etc/local.d/rccr-init.start <<'INITEOF'
 sleep 2
 
 # Ensure services are running
-rc-service avahi-daemon start 2>/dev/null || true
 rc-service sshd start 2>/dev/null || true
 rc-service docker start 2>/dev/null || true
+
+# First boot setup
+SETUP_FLAG="/root/.rccr-setup-done"
+
+if [ ! -f "$SETUP_FLAG" ]; then
+    # First boot - setup root password for remote access
+    clear
+    cat <<'SETUP'
+╔═══════════════════════════════════════════════════════════════════╗
+║                                                                   ║
+║               RCCR (ReCyClusteR) - First Boot Setup              ║
+║                                                                   ║
+╚═══════════════════════════════════════════════════════════════════╝
+
+Welcome to RCCR Control Node!
+
+For remote access from Windows/other computers, please set a root password.
+Node-to-node communication will use SSH keys automatically.
+
+SETUP
+
+    echo ""
+    echo "Please set root password for remote SSH access:"
+    passwd root
+
+    if [ $? -eq 0 ]; then
+        touch "$SETUP_FLAG"
+        echo ""
+        echo "✓ Password set successfully!"
+        echo ""
+        echo "Connection Information:"
+        IP_ADDR=$(ip -4 addr show | grep 'inet ' | awk '{print $2}' | cut -d/ -f1 | grep -v 127.0.0.1 | head -1)
+        echo "  IP Address: $IP_ADDR"
+        echo "  SSH Access: ssh root@$IP_ADDR"
+        echo ""
+        echo "Press Enter to continue..."
+        read dummy
+    else
+        echo ""
+        echo "⚠️  Password setup failed. You can set it later with: passwd root"
+        echo ""
+    fi
+fi
 
 # Display MOTD
 cat <<'MOTD'
@@ -232,7 +250,6 @@ Quick Start:
 
 Available Commands:
   - ansible-playbook: Run cluster automation
-  - nmap: Network scanning
   - docker: Container management
 
 Configuration: /root/rccr/cluster_config.yml
@@ -242,6 +259,15 @@ Documentation: /root/rccr/README.md
     Run 'ansible-playbook setup.playbook' to rotate keys automatically.
 
 MOTD
+
+# Show current IP address
+IP_ADDR=$(ip -4 addr show | grep 'inet ' | awk '{print $2}' | cut -d/ -f1 | grep -v 127.0.0.1 | head -1)
+if [ -n "$IP_ADDR" ]; then
+    echo "Network Status:"
+    echo "  IP Address: $IP_ADDR"
+    echo "  Remote Access: ssh root@$IP_ADDR"
+    echo ""
+fi
 
 INITEOF
 chmod +x "$tmp"/etc/local.d/rccr-init.start
@@ -256,14 +282,8 @@ openssh
 openssh-client
 python3
 py3-yaml
-nmap
 ansible
 docker
-avahi
-bash
-git
-curl
-wget
 sudo
 EOF
 
@@ -274,17 +294,16 @@ EOF
 # Enable services
 rc_add sshd default
 rc_add docker default
-rc_add avahi-daemon default
 rc_add local default
 
 # ===================================================================
-# Bashrc
+# Shell Profile (sh compatible)
 # ===================================================================
 
-cat > "$tmp"/root/.bashrc <<'EOF'
-# RCCR Control Node Bash Configuration
+cat > "$tmp"/root/.profile <<'EOF'
+# RCCR Control Node Shell Configuration
 
-export PS1='\[\033[01;32m\]rccr-control\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ '
+export PS1='rccr-control:\w\$ '
 export PATH="/root/rccr/scripts:$PATH"
 
 alias ll='ls -lah'

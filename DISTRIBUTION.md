@@ -6,15 +6,14 @@
 
 RCCR은 즉시 사용 가능한 **부팅 이미지**를 제공합니다:
 - **OS 이미지**: ISO/IMG 파일 (GitHub Releases)
-- **Docker 이미지**: 컨테이너 (GitHub Container Registry)
 
 ---
 
 ## 🎯 배포 방식
 
-### 1. GitHub Releases (권장)
+### GitHub Releases (권장)
 
-**대상**: 최종 사용자
+**대상**: 모든 사용자
 
 **제공 파일**:
 - OS 이미지 (ISO/IMG)
@@ -30,24 +29,6 @@ RCCR은 즉시 사용 가능한 **부팅 이미지**를 제공합니다:
 **단점**:
 - ❌ 파일 크기 제한 (2GB per file)
 - ❌ 대역폭 제한 (soft limit)
-
----
-
-### 2. GitHub Container Registry (ghcr.io)
-
-**대상**: 개발자, 테스터
-
-**제공**:
-- Docker 이미지
-
-**사용**:
-```bash
-docker pull ghcr.io/nananina0415/recycluster:latest
-docker pull ghcr.io/nananina0415/recycluster:0.0.2
-```
-
-**장점**:
-- ✅ 무료 (공개 저장소)
 - ✅ GitHub 통합
 - ✅ 자동 빌드 (CI/CD)
 
@@ -80,15 +61,6 @@ git push origin v0.0.2
 
 **소요 시간**: 약 60-90분 (병렬 빌드)
 
-#### 3. Docker 이미지 자동 푸시
-
-**워크플로우**: `.github/workflows/build-docker.yml`
-
-**동작**:
-1. Dockerfile 빌드
-2. ghcr.io에 푸시
-3. 태그 지정 (버전, latest)
-
 ---
 
 ## 📋 배포 체크리스트
@@ -99,9 +71,8 @@ git push origin v0.0.2
 - [ ] 문서 업데이트 (README.md, CHANGELOG.md)
 - [ ] 버전 번호 업데이트
   - [ ] `cluster_config.yml` (주석)
-  - [ ] `Dockerfile` (LABEL)
   - [ ] `README.md`
-  - [ ] `.github/workflows/*.yml` (예시)
+  - [ ] `.github/workflows/build-os-images.yml` (예시)
 - [ ] 로컬 빌드 테스트
 - [ ] CHANGELOG.md 작성
 

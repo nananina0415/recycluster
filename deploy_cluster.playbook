@@ -99,11 +99,7 @@
     - name: "Install basic packages"
       ansible.builtin.package:
         name:
-          - curl
-          - wget
-          - git
           - ca-certificates
-          - gnupg
         state: present
       tags: [packages]
 
@@ -168,24 +164,22 @@
       tags: [containers]
 
     - name: "Pull container images"
-      community.docker.docker_image:
-        name: "{{ item }}"
-        source: pull
+      ansible.builtin.command:
+        cmd: docker pull {{ item }}
       loop: "{{ containers }}"
       when: containers is defined and containers | length > 0
       tags: [containers]
       ignore_errors: yes  # 이미지가 없을 경우 계속 진행
+      changed_when: false
 
     - name: "Run containers"
-      community.docker.docker_container:
-        name: "{{ item }}"
-        image: "{{ item }}"
-        state: started
-        restart_policy: unless-stopped
+      ansible.builtin.command:
+        cmd: docker run -d --name {{ item }} --restart unless-stopped {{ item }}
       loop: "{{ containers }}"
       when: containers is defined and containers | length > 0
       tags: [containers]
       ignore_errors: yes  # 컨테이너 실행 실패 시 계속 진행
+      changed_when: false
 
     # ==================================================================
     # 7단계: 완료 메시지

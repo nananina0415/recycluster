@@ -192,14 +192,15 @@ jobs:
           ### 📦 제공 이미지
 
           **Control Node** (클러스터 관리 노드):
-          - Python3, Ansible, nmap 사전 설치
-          - SSH 임시 키 포함
-          - 호스트명: `ReCyClusteR-Control`
+          - Python3, Ansible, Docker 사전 설치
+          - SSH 키 기반 노드 간 통신
+          - 비밀번호 기반 원격 접속 (첫 부팅 시 설정)
+          - 호스트명: `ReCyClusteR-Node`
 
           **Target Node** (워커 노드):
           - Python3, Docker 사전 설치
           - SSH 서버 자동 시작
-          - 호스트명: `ReCyClusteR-Target`
+          - 호스트명: `ReCyClusteR-Node`
 
           ### 🏗️ 지원 아키텍처
 

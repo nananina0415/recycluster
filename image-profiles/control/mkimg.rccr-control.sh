@@ -2,7 +2,7 @@ profile_rccr_control() {
 	profile_standard
 	title="RCCR Control Node"
 	desc="RCCR Control Node - Alpine Linux cluster manager
-		Includes Ansible, Python3, nmap for cluster management
+		Includes Ansible, Python3 for cluster management
 		SSH keys are temporary and auto-rotated on first setup"
 	profile_abbrev="rccr-control"
 	image_ext="iso"
@@ -24,14 +24,12 @@ profile_rccr_control() {
 			;;
 	esac
 
-	# RCCR Control packages: Ansible, Docker, Python, networking tools
+	# RCCR Control packages: Ansible, Docker, Python
 	apks="$apks
 		openssh openssh-client openssh-server openssh-keygen
 		python3 py3-pip py3-yaml
-		nmap ansible
-		bash curl wget git
+		ansible
 		docker docker-compose docker-cli-compose
-		avahi dbus
 		sudo
 		"
 
@@ -40,5 +38,5 @@ profile_rccr_control() {
 
 	# Boot and default services
 	boot_services="networking chronyd"
-	default_services="docker sshd avahi-daemon local"
+	default_services="docker sshd local"
 }

@@ -86,30 +86,6 @@ if [ -f /tmp/rccr-ssh/id_rsa.pub ]; then
 fi
 
 # ===================================================================
-# Avahi Configuration (mDNS)
-# ===================================================================
-
-mkdir -p "$tmp"/etc/avahi
-cat > "$tmp"/etc/avahi/avahi-daemon.conf <<'EOF'
-[server]
-host-name=ReCyClusteR-Node
-domain-name=local
-use-ipv4=yes
-use-ipv6=no
-allow-interfaces=eth0
-deny-interfaces=docker0
-
-[publish]
-publish-addresses=yes
-publish-hinfo=yes
-publish-workstation=yes
-publish-domain=yes
-
-[reflector]
-enable-reflector=no
-EOF
-
-# ===================================================================
 # Docker Configuration
 # ===================================================================
 
@@ -141,7 +117,6 @@ cat > "$tmp"/etc/local.d/target-init.start <<'INITEOF'
 sleep 2
 
 # Ensure services are running
-rc-service avahi-daemon start 2>/dev/null || true
 rc-service sshd start 2>/dev/null || true
 rc-service docker start 2>/dev/null || true
 
@@ -185,8 +160,6 @@ cat > "$tmp"/etc/apk/world <<'EOF'
 openssh
 python3
 docker
-avahi
-bash
 sudo
 EOF
 
@@ -197,17 +170,16 @@ EOF
 # Enable services
 rc_add sshd default
 rc_add docker default
-rc_add avahi-daemon default
 rc_add local default
 
 # ===================================================================
-# Bashrc
+# Shell Profile (sh compatible)
 # ===================================================================
 
-cat > "$tmp"/root/.bashrc <<'EOF'
-# RCCR Target Node Bash Configuration
+cat > "$tmp"/root/.profile <<'EOF'
+# RCCR Target Node Shell Configuration
 
-export PS1='\[\033[01;33m\]rccr-target\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ '
+export PS1='rccr-target:\w\$ '
 
 alias ll='ls -lah'
 alias logs='docker logs'

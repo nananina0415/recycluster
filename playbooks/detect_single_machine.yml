@@ -18,41 +18,89 @@
 
   register: user_confirmation
 
-- name: Scan network for new hosts
-  ansible.builtin.command:
-    cmd: nmap -sn -oG - {{ network_config.subnet }}
+- name: Scan network for active hosts (ping scan)
+  ansible.builtin.shell: |
+    network="{{ network_config.subnet | regex_replace('/.*$', '') }}"
+    prefix=$(echo $network | cut -d. -f1-3)
+    i=1
+    while [ $i -le 254 ]; do
+      (ping -c 1 -W 1 $prefix.$i >/dev/null 2>&1 && echo "$prefix.$i") &
+      i=$((i + 1))
+    done
+    wait
   register: new_scan
   changed_when: false
 
-- name: Parse new scan results
+- name: Parse active hosts from scan
   ansible.builtin.set_fact:
-    current_hosts: "{{ new_scan.stdout_lines |
-      select('match', '^Host:.*' + hostname_filter) |
-      map('regex_findall', 'Host: ([0-9.]+) \\(([^)]+)\\)') |
+    current_hosts: "{{ new_scan.stdout_lines | select('match', '^[0-9]') | list }}"
+
+- name: Find newly appeared hosts
+  ansible.builtin.set_fact:
+    new_hosts: "{{ current_hosts | difference(initial_hosts) }}"
+
+- name: Debug - Show scan results
+  ansible.builtin.debug:
+    msg: |
+      ═══════════════════════════════════════════════════════════════════
+      Network Scan Results:
+      ═══════════════════════════════════════════════════════════════════
+      Total active hosts: {{ current_hosts | length }}
+      Initial hosts: {{ initial_hosts | length }}
+      New hosts detected: {{ new_hosts }}
+  when: true  # Set to false to disable debugging
+
+- name: Check hostname for each new IP via SSH
+  ansible.builtin.command:
+    cmd: ssh -o StrictHostKeyChecking=no -o ConnectTimeout=2 -o BatchMode=yes root@{{ item }} 'hostname'
+  register: hostname_checks
+  loop: "{{ new_hosts }}"
+  failed_when: false
+  changed_when: false
+  when: new_hosts | length > 0
+
+- name: Filter IPs with correct hostname
+  ansible.builtin.set_fact:
+    valid_hosts: "{{ hostname_checks.results |
+      selectattr('rc', 'equalto', 0) |
+      selectattr('stdout', 'search', 'ReCyClusteR-Node') |
+      map(attribute='item') |
       list }}"
+  when: new_hosts | length > 0
+
+- name: Debug - Show hostname check results
+  ansible.builtin.debug:
+    msg: |
+      ═══════════════════════════════════════════════════════════════════
+      Hostname Check Results (via SSH):
+      ═══════════════════════════════════════════════════════════════════
+      {% for result in hostname_checks.results %}
+      {{ result.item }}: {{ result.stdout | trim if result.rc == 0 else 'SSH connection failed' }}
+      {% endfor %}
+
+      Valid hosts (ReCyClusteR-Node): {{ valid_hosts | default([]) }}
+  when: new_hosts | length > 0 and true  # Set to false to disable debugging
 
 - name: Extract new host IP
   ansible.builtin.set_fact:
-    new_host_ip: "{{ current_hosts[0][0][0] if current_hosts | length > 0 and current_hosts[0] | length > 0 else '' }}"
-    new_host_name: "{{ current_hosts[0][0][1] if current_hosts | length > 0 and current_hosts[0] | length > 0 else '' }}"
+    new_host_ip: "{{ valid_hosts[0] if (new_hosts | length > 0 and valid_hosts | default([]) | length > 0) else '' }}"
 
 - name: Display detected host
   ansible.builtin.debug:
     msg: |
-      ✓ Host detected!
+      ✓ New host detected!
       IP: {{ new_host_ip }}
-      Hostname: {{ new_host_name }}
-      Mapping to: {{ machine.name }}
+      Mapping to: {{ machine.name }} ({{ machine.role }})
   when: new_host_ip != ''
 
-- name: Warn if no host detected
+- name: Warn if no new host detected
   ansible.builtin.debug:
     msg: |
-      ⚠ No new host with hostname '{{ hostname_filter }}' detected.
+      ⚠ No new host appeared on the network.
       Please check:
-      - Machine is powered on
+      - Machine is powered on and booted
       - Network cable is connected
-      - Machine hostname is set to {{ hostname_filter }}-Node
+      - Machine is on the same network ({{ network_config.subnet }})
   when: new_host_ip == ''
 
 - name: Update machine with detected IP

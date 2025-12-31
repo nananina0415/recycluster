@@ -28,9 +28,7 @@ profile_rccr_target() {
 	apks="$apks
 		openssh openssh-server
 		python3
-		bash
 		docker docker-compose docker-cli-compose
-		avahi dbus
 		sudo
 		"
 
@@ -39,5 +37,5 @@ profile_rccr_target() {
 
 	# Boot and default services
 	boot_services="networking chronyd"
-	default_services="docker sshd avahi-daemon local"
+	default_services="docker sshd local"
 }
