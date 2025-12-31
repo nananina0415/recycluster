@@ -245,13 +245,13 @@ rc_add docker default
 rc_add local default
 
 # ===================================================================
-# Bashrc
+# Shell Profile (sh compatible)
 # ===================================================================
 
-cat > "$tmp"/root/.bashrc <<'EOF'
-# RCCR Control Node Bash Configuration
+cat > "$tmp"/root/.profile <<'EOF'
+# RCCR Control Node Shell Configuration
 
-export PS1='\[\033[01;32m\]rccr-control\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ '
+export PS1='rccr-control:\w\$ '
 export PATH="/root/rccr/scripts:$PATH"
 
 alias ll='ls -lah'

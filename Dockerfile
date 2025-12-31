@@ -125,7 +125,7 @@ case "$1" in\n\
         ;;\n\
     bash|sh)\n\
         echo "Starting interactive shell..."\n\
-        exec /bin/bash\n\
+        exec /bin/sh\n\
         ;;\n\
     ansible-playbook)\n\
         shift\n\

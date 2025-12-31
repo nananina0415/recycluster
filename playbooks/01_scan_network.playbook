@@ -28,8 +28,10 @@
       ansible.builtin.shell: |
         network="{{ network_config.subnet | regex_replace('/.*$', '') }}"
         prefix=$(echo $network | cut -d. -f1-3)
-        for i in {1..254}; do
+        i=1
+        while [ $i -le 254 ]; do
           (ping -c 1 -W 1 $prefix.$i >/dev/null 2>&1 && echo "$prefix.$i") &
+          i=$((i + 1))
         done
         wait
       register: initial_scan

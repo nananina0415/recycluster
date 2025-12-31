@@ -173,13 +173,13 @@ rc_add docker default
 rc_add local default
 
 # ===================================================================
-# Bashrc
+# Shell Profile (sh compatible)
 # ===================================================================
 
-cat > "$tmp"/root/.bashrc <<'EOF'
-# RCCR Target Node Bash Configuration
+cat > "$tmp"/root/.profile <<'EOF'
+# RCCR Target Node Shell Configuration
 
-export PS1='\[\033[01;33m\]rccr-target\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ '
+export PS1='rccr-target:\w\$ '
 
 alias ll='ls -lah'
 alias logs='docker logs'
