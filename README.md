@@ -1,4 +1,4 @@
-# RCCR (ReCyClusteR) v0.0.2
+# RCCR (ReCyClusteR) v0.0.4
 
 > Alpine Linux 기반 클러스터 자동 셋업 도구
 
@@ -49,10 +49,10 @@
 
 ```bash
 # Control 노드 (x86_64 예시)
-wget https://github.com/nananina0415/recycluster/releases/latest/download/rccr-0.0.2-x86_64-control.iso
+wget https://github.com/nananina0415/recycluster/releases/latest/download/rccr-0.0.4-x86_64-control.iso
 
 # Target 노드 (aarch64 예시)
-wget https://github.com/nananina0415/recycluster/releases/latest/download/rccr-0.0.2-aarch64-target.img
+wget https://github.com/nananina0415/recycluster/releases/latest/download/rccr-0.0.4-aarch64-target.img
 ```
 
 #### 1.2. 체크섬 검증
@@ -73,7 +73,7 @@ sha256sum -c SHA256SUMS
 lsblk
 
 # 플래시 (주의: /dev/sdX를 올바른 디바이스로 변경)
-sudo dd if=rccr-0.0.2-x86_64-control.iso of=/dev/sdX bs=4M status=progress
+sudo dd if=rccr-0.0.4-x86_64-control.iso of=/dev/sdX bs=4M status=progress
 sync
 ```
 
@@ -225,7 +225,7 @@ ansible-playbook setup.playbook
 
 ```
 ╔═══════════════════════════════════════════════════════════════════╗
-║            RCCR (ReCyClusteR) Cluster Setup v0.0.2               ║
+║            RCCR (ReCyClusteR) Cluster Setup v0.0.4               ║
 ║                  Alpine Linux Cluster Manager                    ║
 ╚═══════════════════════════════════════════════════════════════════╝
 
@@ -247,7 +247,7 @@ Please:
 
 ✓ Host detected!
 IP: 192.168.1.201
-Hostname: ReCyClusteR-Target
+Hostname: ReCyClusteR-Node
 Mapping to: rccr-node-1
 ```
 
@@ -306,17 +306,14 @@ docker run -it -v ${PWD}:/workspace --network host rccr bash
 | 구분 | Control | Target |
 |------|---------|--------|
 | **역할** | 클러스터 관리 | 워커 |
-| **호스트명** | `ReCyClusteR-Control` | `ReCyClusteR-Target` |
-| **사전 설치** | Ansible, nmap, Python3 | Docker, Python3 |
-| **SSH 키** | 개인키 포함 | 공개키만 포함 |
+| **호스트명** | `ReCyClusteR-Node` | `ReCyClusteR-Node` |
+| **사전 설치** | Ansible, Docker, Python3 | Docker, Python3 |
+| **SSH 인증** | 키(노드간) + 비밀번호(원격) | 키(노드간) |
 | **용도** | 셋업 실행, 관리 | 컨테이너 실행 |
 
 ### 호스트명 필터링
 
-네트워크 스캔 시 `ReCyClusteR` 패턴을 가진 호스트만 감지:
-- Control 노드: `ReCyClusteR-Control`
-- Target 노드: `ReCyClusteR-Target`
-
+네트워크 스캔 시 `ReCyClusteR-Node` 호스트명을 가진 머신만 감지합니다.
 이렇게 하면 네트워크상의 다른 머신들은 무시됩니다.
 
 ### SSH 키 자동 교체
@@ -424,10 +421,10 @@ ansible-playbook custom.playbook
 
 ```bash
 # 단일 이미지 빌드
-bash scripts/build-single-image.sh x86_64 control 0.0.2
+bash scripts/build-single-image.sh x86_64 control 0.0.4
 
 # 모든 이미지 빌드 (24개)
-bash scripts/build-all-images.sh 0.0.2
+bash scripts/build-all-images.sh 0.0.4
 ```
 
 **요구사항:**
@@ -439,7 +436,7 @@ bash scripts/build-all-images.sh 0.0.2
 
 GitHub Actions가 자동으로 이미지를 빌드합니다:
 
-1. 태그 푸시: `git tag v0.0.2 && git push --tags`
+1. 태그 푸시: `git tag v0.0.4 && git push --tags`
 2. GitHub Actions 실행
 3. 12개 OS 이미지 생성 (6 아키텍처 × 2 타입)
 4. GitHub Release 자동 생성
@@ -488,16 +485,16 @@ chmod 644 /root/.ssh/id_rsa.pub
 
 **해결:**
 ```bash
-# 호스트명 확인 (Target 노드)
+# 호스트명 확인
 hostname
 cat /etc/hostname
 
 # 호스트명 수동 설정
-echo "ReCyClusteR-Target" > /etc/hostname
+echo "ReCyClusteR-Node" > /etc/hostname
 hostname -F /etc/hostname
 
-# Avahi 재시작 (mDNS)
-rc-service avahi-daemon restart
+# SSH 재시작
+rc-service sshd restart
 ```
 
 ### 4. Docker 컨테이너가 시작되지 않음
@@ -541,7 +538,7 @@ bash -n scripts/*.sh
 python3 -c "import yaml; yaml.safe_load(open('cluster_config.yml'))"
 
 # 로컬 빌드 테스트
-bash scripts/build-single-image.sh x86_64 control 0.0.2
+bash scripts/build-single-image.sh x86_64 control 0.0.4
 ```
 
 ---
@@ -567,7 +564,7 @@ MIT License - 자유롭게 사용, 수정, 배포 가능
 
 ---
 
-**버전**: 0.0.2
+**버전**: 0.0.4
 **마지막 업데이트**: 2025-12-30
 **Alpine Linux**: 3.19
 **Ansible**: 최신

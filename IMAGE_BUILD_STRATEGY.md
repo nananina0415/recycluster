@@ -27,7 +27,7 @@
 │   │   ├── answerfile                 # setup-alpine 자동 응답
 │   │   └── overlay/                   # 사전 구성 파일
 │   │       ├── etc/
-│   │       │   ├── hostname          # ReCyClusteR-Control
+│   │       │   ├── hostname          # ReCyClusteR-Node
 │   │       │   ├── ssh/
 │   │       │   │   └── sshd_config
 │   │       │   ├── apk/
@@ -53,7 +53,7 @@
 │       ├── answerfile
 │       └── overlay/
 │           ├── etc/
-│           │   ├── hostname          # ReCyClusteR-Target
+│           │   ├── hostname          # ReCyClusteR-Node
 │           │   ├── ssh/
 │           │   │   └── sshd_config
 │           │   └── local.d/
@@ -86,7 +86,7 @@ profile_control() {
     kernel_flavors="lts"
 
     # 기본 설정
-    hostname="ReCyClusteR-Control"
+    hostname="ReCyClusteR-Node"
     apks="$apks
         openssh openssh-client openssh-server
         python3 py3-pip py3-yaml
@@ -112,13 +112,13 @@ profile_control() {
 ```bash
 # setup-alpine 자동 응답 파일
 KEYMAPOPTS="us us"
-HOSTNAMEOPTS="ReCyClusteR-Control"
+HOSTNAMEOPTS="ReCyClusteR-Node"
 INTERFACESOPTS="auto lo
 iface lo inet loopback
 
 auto eth0
 iface eth0 inet dhcp
-    hostname ReCyClusteR-Control
+    hostname ReCyClusteR-Node
 "
 DNSOPTS="1.1.1.1 8.8.8.8"
 TIMEZONEOPTS="UTC"
@@ -136,7 +136,7 @@ DISKOPTS="none"  # 디스크 설치는 사용자가 선택
 
 HOSTNAME="$1"
 if [ -z "$HOSTNAME" ]; then
-    HOSTNAME="ReCyClusteR-Control"
+    HOSTNAME="ReCyClusteR-Node"
 fi
 
 cleanup() {
@@ -235,7 +235,7 @@ cat <<'MOTD'
 ║                                                   ║
 ╚═══════════════════════════════════════════════════╝
 
-Hostname: ReCyClusteR-Control
+Hostname: ReCyClusteR-Node
 Type: Control Node (Cluster Manager)
 
 Quick Start:
@@ -285,7 +285,7 @@ profile_target() {
     profile_standard
     kernel_flavors="lts"
 
-    hostname="ReCyClusteR-Target"
+    hostname="ReCyClusteR-Node"
     apks="$apks
         openssh openssh-server
         python3
@@ -307,7 +307,7 @@ profile_target() {
 
 HOSTNAME="$1"
 if [ -z "$HOSTNAME" ]; then
-    HOSTNAME="ReCyClusteR-Target"
+    HOSTNAME="ReCyClusteR-Node"
 fi
 
 cleanup() {
@@ -368,7 +368,7 @@ cat <<'MOTD'
 ║                                                   ║
 ╚═══════════════════════════════════════════════════╝
 
-Hostname: ReCyClusteR-Target
+Hostname: ReCyClusteR-Node
 Type: Target Node (Worker)
 
 This node is ready to be managed by the Control Node.
@@ -860,7 +860,7 @@ bash scripts/build-single-image.sh x86_64 control 0.0.2
 
 ```bash
 # Control 노드 부팅 (ISO/IMG 플래시)
-# 부팅 후 자동으로 ReCyClusteR-Control 호스트명 설정됨
+# 부팅 후 자동으로 ReCyClusteR-Node 호스트명 설정됨
 
 # 로그인 (root, 비밀번호 없음 - SSH 키 인증)
 cd /root/rccr
