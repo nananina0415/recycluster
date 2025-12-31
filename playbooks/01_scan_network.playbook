@@ -1,0 +1,203 @@
+---
+# RCCR Network Scanning and Node Discovery
+# Pure Ansible implementation - No Python scripts
+
+- name: Network Scanning and Node Discovery
+  hosts: localhost
+  gather_facts: yes
+  become: no
+
+  vars_files:
+    - ../cluster_config.yml
+
+  vars:
+    hostname_filter: "{{ network_config.hostname_filter | default('ReCyClusteR') }}"
+    detected_machines: []
+
+  tasks:
+    - name: Display scan banner
+      ansible.builtin.debug:
+        msg: |
+          ╔═══════════════════════════════════════════════════════════════════╗
+          ║                  Network Scanning Phase                          ║
+          ╚═══════════════════════════════════════════════════════════════════╝
+
+          Subnet: {{ network_config.subnet }}
+          Hostname Filter: {{ hostname_filter }}*
+          Machines to detect: {{ machines | length }}
+
+    - name: Check if nmap is installed
+      ansible.builtin.command:
+        cmd: which nmap
+      register: nmap_check
+      failed_when: false
+      changed_when: false
+
+    - name: Fail if nmap is not installed
+      ansible.builtin.fail:
+        msg: "nmap is not installed. Please install it: apk add nmap"
+      when: nmap_check.rc != 0
+
+    - name: Take initial network snapshot
+      ansible.builtin.command:
+        cmd: nmap -sn -oG - {{ network_config.subnet }}
+      register: initial_scan
+      changed_when: false
+
+    - name: Parse initial hosts from scan
+      ansible.builtin.set_fact:
+        initial_hosts: "{{ initial_scan.stdout_lines |
+          select('match', '^Host:.*') |
+          map('regex_replace', '^Host: ([0-9.]+) \\((.*)\\).*$', '\\1') |
+          list }}"
+
+    - name: Display initial network state
+      ansible.builtin.debug:
+        msg: "Initial scan found {{ initial_hosts | length }} active hosts"
+
+    - name: Display machine detection instructions
+      ansible.builtin.debug:
+        msg: |
+          ═══════════════════════════════════════════════════════════════════
+          Interactive Node Detection
+          ═══════════════════════════════════════════════════════════════════
+
+          You will be prompted to connect each machine one by one.
+          The system will automatically detect machines with hostname: {{ hostname_filter }}*
+
+          Machines to connect:
+          {% for machine in machines %}
+          {{ loop.index }}. {{ machine.name }} ({{ machine.role }}) → Expected IP: {{ machine.ip }}
+          {% endfor %}
+
+    # Loop through each machine for detection
+    - name: Detect machines interactively
+      block:
+        - name: Prompt user to connect machine
+          ansible.builtin.pause:
+            prompt: |
+
+              ═══════════════════════════════════════════════════════════════════
+              Machine {{ idx + 1 }}/{{ machines | length }}
+              ═══════════════════════════════════════════════════════════════════
+              Name: {{ item.name }}
+              Role: {{ item.role }}
+              Expected IP: {{ item.ip }}
+
+              Please:
+              1. Power on the machine
+              2. Wait for it to boot (LED should be solid/blinking)
+              3. Press ENTER when ready to scan...
+
+          register: user_confirmation
+
+        - name: Scan network for new hosts
+          ansible.builtin.command:
+            cmd: nmap -sn -oG - {{ network_config.subnet }}
+          register: new_scan
+          changed_when: false
+
+        - name: Parse new scan results
+          ansible.builtin.set_fact:
+            current_hosts: "{{ new_scan.stdout_lines |
+              select('match', '^Host:.*' + hostname_filter) |
+              map('regex_findall', 'Host: ([0-9.]+) \\(([^)]+)\\)') |
+              list }}"
+
+        - name: Extract new host IP
+          ansible.builtin.set_fact:
+            new_host_ip: "{{ current_hosts[0][0][0] if current_hosts | length > 0 and current_hosts[0] | length > 0 else '' }}"
+            new_host_name: "{{ current_hosts[0][0][1] if current_hosts | length > 0 and current_hosts[0] | length > 0 else '' }}"
+
+        - name: Display detected host
+          ansible.builtin.debug:
+            msg: |
+              ✓ Host detected!
+              IP: {{ new_host_ip }}
+              Hostname: {{ new_host_name }}
+              Mapping to: {{ item.name }}
+          when: new_host_ip != ''
+
+        - name: Warn if no host detected
+          ansible.builtin.debug:
+            msg: |
+              ⚠ No new host with hostname '{{ hostname_filter }}' detected.
+              Please check:
+              - Machine is powered on
+              - Network cable is connected
+              - Machine hostname is set to {{ hostname_filter }}-Control or {{ hostname_filter }}-Target
+          when: new_host_ip == ''
+
+        - name: Update machine with detected IP
+          ansible.builtin.set_fact:
+            detected_machines: "{{ detected_machines + [item | combine({'detected_ip': new_host_ip})] }}"
+          when: new_host_ip != ''
+
+        - name: Add to initial hosts (prevent re-detection)
+          ansible.builtin.set_fact:
+            initial_hosts: "{{ initial_hosts + [new_host_ip] }}"
+          when: new_host_ip != ''
+
+      loop: "{{ machines }}"
+      loop_control:
+        index_var: idx
+        label: "{{ item.name }}"
+
+    - name: Display detection summary
+      ansible.builtin.debug:
+        msg: |
+          ═══════════════════════════════════════════════════════════════════
+          Detection Summary
+          ═══════════════════════════════════════════════════════════════════
+          Successfully detected: {{ detected_machines | length }}/{{ machines | length }} machines
+
+          {% for machine in detected_machines %}
+          ✓ {{ machine.name }}: {{ machine.detected_ip }} ({{ machine.role }})
+          {% endfor %}
+
+          {% if detected_machines | length < machines | length %}
+          ⚠ Missing: {{ machines | length - detected_machines | length }} machines
+          {% endif %}
+
+    - name: Confirm to continue
+      ansible.builtin.pause:
+        prompt: |
+
+          Do you want to continue with the detected machines? (yes/no)
+      register: continue_confirmation
+
+    - name: Fail if user cancelled
+      ansible.builtin.fail:
+        msg: "User cancelled the setup"
+      when: continue_confirmation.user_input | lower not in ['yes', 'y']
+
+    - name: Update cluster_config.yml with detected IPs
+      ansible.builtin.lineinfile:
+        path: ../cluster_config.yml
+        regexp: "^(\\s+)detected_ip:.*# {{ item.name }}$"
+        line: "\\1detected_ip: {{ item.detected_ip }}  # {{ item.name }}"
+        backrefs: yes
+      loop: "{{ detected_machines }}"
+      when: item.detected_ip != ''
+      loop_control:
+        label: "{{ item.name }}: {{ item.detected_ip }}"
+
+    - name: Generate Ansible inventory
+      ansible.builtin.template:
+        src: ../templates/inventory.yml.j2
+        dest: ../inventory.yml
+        mode: '0644'
+      vars:
+        all_machines: "{{ detected_machines }}"
+
+    - name: Display completion message
+      ansible.builtin.debug:
+        msg: |
+          ╔═══════════════════════════════════════════════════════════════════╗
+          ║            Network Scanning Complete                             ║
+          ╚═══════════════════════════════════════════════════════════════════╝
+
+          ✓ cluster_config.yml updated with detected IPs
+          ✓ inventory.yml generated
+
+          Next: SSH key rotation

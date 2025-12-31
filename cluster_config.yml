@@ -1,45 +1,104 @@
-cluster_managers:
-  - cm
+# ═══════════════════════════════════════════════════════════════════
+# RCCR Cluster Configuration
+# ═══════════════════════════════════════════════════════════════════
+# This is the SINGLE SOURCE OF TRUTH for your cluster configuration.
+# All Ansible playbooks read from this file.
+#
+# DO NOT create additional configuration files.
+# DO NOT generate dynamic playbooks or configs.
+# ═══════════════════════════════════════════════════════════════════
 
+# Cluster metadata
+cluster_name: rccr-cluster
+
+# Network configuration
 network_config:
   subnet: "192.168.219.0/24"
   gateway: "192.168.219.1"
-  dns: "1.1.1.1 4.4.4.4"
+  dns: "1.1.1.1 8.8.8.8"
+  hostname_filter: "ReCyClusteR"  # Only detect hosts with this hostname pattern
 
+# SSH configuration
+ssh_config:
+  temp_key_rotation: true  # Automatically rotate temporary SSH keys
+  new_key_type: rsa
+  new_key_size: 4096
+
+# Layer toggles
+orchestration_layer_enabled: false  # Docker Swarm / Kubernetes
+container_layer_enabled: false      # Automatic container deployment
+
+# Machine definitions
+# Note: detected_ip will be automatically populated during setup
 machines:
-  - name: rpicluster-laptop-1
-    ip: 192.168.219.201
-    detected_ip: null
+  # Control Node (Cluster Manager)
+  - name: rccr-control
+    ip: 192.168.219.200
+    detected_ip: null  # rccr-control
     role: manager
+    type: control
+    containers: []
+
+  # Target Nodes (Workers)
+  - name: rccr-node-1
+    ip: 192.168.219.201
+    detected_ip: null  # rccr-node-1
+    role: worker
+    type: target
     containers:
       - storage
       - task_queue
       - runnin_gmate
 
-  - name: rpicluster-rpi3-1
+  - name: rccr-node-2
     ip: 192.168.219.202
-    detected_ip: null
+    detected_ip: null  # rccr-node-2
     role: worker
+    type: target
     containers:
       - runner
 
-  - name: rpicluster-rpi2-1
+  - name: rccr-node-3
     ip: 192.168.219.203
-    detected_ip: null
+    detected_ip: null  # rccr-node-3
     role: worker
+    type: target
     containers:
       - runner
 
-  # - name: rpicluster-rpi2-2
-  #   ip: 192.168.1.205
-  #   detected_ip: null
-  #   role: worker
-  #   containers:
-
-  - name: rpicluster-rpi0-1
+  - name: rccr-node-4
     ip: 192.168.219.204
-    detected_ip: null
+    detected_ip: null  # rccr-node-4
     role: worker
+    type: target
     containers:
       - service
       - reverse_proxy
+
+# ═══════════════════════════════════════════════════════════════════
+# Field Descriptions
+# ═══════════════════════════════════════════════════════════════════
+#
+# Cluster:
+#   cluster_name: Identifier for your cluster
+#
+# Network:
+#   subnet: Network range to scan (CIDR notation)
+#   gateway: Default gateway for static IP configuration
+#   dns: DNS servers (space-separated)
+#   hostname_filter: Pattern to filter during network scan
+#
+# SSH:
+#   temp_key_rotation: Rotate temp keys after first connection
+#   new_key_type: Type of new SSH key (rsa, ed25519)
+#   new_key_size: Key size in bits (4096 recommended for RSA)
+#
+# Machines:
+#   name: Unique machine identifier
+#   ip: Static IP to assign
+#   detected_ip: Auto-populated during network scan
+#   role: manager | worker
+#   type: control | target
+#   containers: List of containers to deploy on this machine
+#
+# ═══════════════════════════════════════════════════════════════════

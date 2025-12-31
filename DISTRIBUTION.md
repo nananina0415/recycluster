@@ -1,336 +1,418 @@
-# RCCR APK 패키지 배포 가이드
+# RCCR 배포 전략 및 방법
 
-## 배포 방법 개요
+> OS 이미지 기반 배포 가이드
 
-Alpine Linux APK 패키지를 배포하는 방법은 크게 3가지입니다:
+## 📦 배포 개요
 
-### 1. 공식 Alpine 저장소 등록 (권장, 장기적)
-### 2. 개인 APK 저장소 운영
-### 3. GitHub Releases를 통한 직접 배포
-
----
-
-## 방법 1: 공식 Alpine 저장소 등록
-
-### 장점
-- 사용자가 `apk add rccr`로 바로 설치 가능
-- Alpine 커뮤니티의 신뢰
-- 자동 업데이트 지원
-
-### 단점
-- 승인 과정이 필요 (며칠~몇 주 소요)
-- 엄격한 품질 기준 충족 필요
-
-### 절차
-
-1. **Alpine GitLab 계정 생성**
-   - https://gitlab.alpinelinux.org 에서 계정 생성
-
-2. **aports 저장소 포크**
-   ```bash
-   git clone https://gitlab.alpinelinux.org/alpine/aports.git
-   cd aports
-   ```
-
-3. **패키지 추가**
-   ```bash
-   # testing 저장소에 추가 (신규 패키지)
-   mkdir -p testing/rccr
-   cp /path/to/your/APKBUILD testing/rccr/
-
-   # 체크섬 생성
-   cd testing/rccr
-   abuild checksum
-   ```
-
-4. **빌드 테스트**
-   ```bash
-   abuild -r
-   ```
-
-5. **커밋 및 Merge Request**
-   ```bash
-   git checkout -b add-rccr
-   git add testing/rccr
-   git commit -m "testing/rccr: new aport"
-   git push origin add-rccr
-   ```
-
-6. **Merge Request 생성**
-   - GitLab에서 Merge Request 생성
-   - Alpine 패키지 가이드라인 준수 확인
-   - 커뮤니티 리뷰 대기
-
-7. **승인 후**
-   - testing → community → main 순으로 승격 가능
-
-### 참고 자료
-- Alpine Package Policy: https://wiki.alpinelinux.org/wiki/Creating_an_Alpine_package
-- APKBUILD Reference: https://wiki.alpinelinux.org/wiki/APKBUILD_Reference
+RCCR은 즉시 사용 가능한 **부팅 이미지**를 제공합니다:
+- **OS 이미지**: ISO/IMG 파일 (GitHub Releases)
+- **Docker 이미지**: 컨테이너 (GitHub Container Registry)
 
 ---
 
-## 방법 2: 개인 APK 저장소 운영 (중기적)
+## 🎯 배포 방식
 
-### 장점
-- 완전한 통제권
-- 빠른 배포 가능
-- 베타/개발 버전 배포 용이
+### 1. GitHub Releases (권장)
 
-### 단점
-- 인프라 유지 필요
-- 사용자가 저장소 추가 필요
+**대상**: 최종 사용자
 
-### 구축 방법
+**제공 파일**:
+- OS 이미지 (ISO/IMG)
+- 체크섬 파일 (SHA256SUMS)
+- 릴리스 노트
 
-#### 2-1. 저장소 서버 준비
+**장점**:
+- ✅ 무료
+- ✅ 버전 관리 자동화
+- ✅ 다운로드 통계
+- ✅ CDN 제공
 
-```bash
-# 웹 서버 설치 (nginx 예시)
-apk add nginx
-
-# 저장소 디렉토리 생성
-mkdir -p /var/www/apk/v3.19/main/x86_64
-```
-
-#### 2-2. 패키지 빌드 및 서명
-
-```bash
-# 서명 키 생성 (최초 1회)
-abuild-keygen -a -i
-
-# 패키지 빌드
-./build-apk.sh
-cd build
-abuild checksum
-abuild -r
-
-# 빌드된 패키지 복사
-cp ~/packages/main/x86_64/rccr-*.apk /var/www/apk/v3.19/main/x86_64/
-```
-
-#### 2-3. 저장소 인덱스 생성
-
-```bash
-cd /var/www/apk/v3.19/main/x86_64/
-
-# 인덱스 생성
-apk index -o APKINDEX.tar.gz *.apk
-
-# 서명
-abuild-sign -k ~/.abuild/your-key.rsa APKINDEX.tar.gz
-```
-
-#### 2-4. 공개 키 배포
-
-```bash
-# 공개 키를 웹 서버에 복사
-cp ~/.abuild/your-key.rsa.pub /var/www/apk/your-key.rsa.pub
-```
-
-#### 2-5. nginx 설정
-
-```nginx
-server {
-    listen 80;
-    server_name apk.yourdomain.com;
-
-    root /var/www/apk;
-    autoindex on;
-
-    location / {
-        try_files $uri $uri/ =404;
-    }
-}
-```
-
-#### 2-6. 사용자 설치 방법
-
-```bash
-# 공개 키 다운로드
-wget http://apk.yourdomain.com/your-key.rsa.pub -O /etc/apk/keys/your-key.rsa.pub
-
-# 저장소 추가
-echo "http://apk.yourdomain.com/v3.19/main" >> /etc/apk/repositories
-
-# 업데이트 및 설치
-apk update
-apk add rccr
-```
+**단점**:
+- ❌ 파일 크기 제한 (2GB per file)
+- ❌ 대역폭 제한 (soft limit)
 
 ---
 
-## 방법 3: GitHub Releases (단기적, 간단)
+### 2. GitHub Container Registry (ghcr.io)
 
-### 장점
-- 가장 간단하고 빠름
-- 무료
-- GitHub 통합
+**대상**: 개발자, 테스터
 
-### 단점
-- 사용자가 수동 다운로드 필요
-- 자동 업데이트 불가
+**제공**:
+- Docker 이미지
 
-### 절차
-
-#### 3-1. 패키지 빌드
-
+**사용**:
 ```bash
-./build-apk.sh
-cd build
-abuild checksum
-abuild -r
+docker pull ghcr.io/nananina0415/recycluster:latest
+docker pull ghcr.io/nananina0415/recycluster:0.0.2
 ```
 
-#### 3-2. GitHub Release 생성
+**장점**:
+- ✅ 무료 (공개 저장소)
+- ✅ GitHub 통합
+- ✅ 자동 빌드 (CI/CD)
+
+---
+
+## 🏗️ 빌드 및 배포 워크플로우
+
+### 자동 배포 (GitHub Actions)
+
+#### 1. 태그 생성 및 푸시
+
+```bash
+# 버전 태그 생성
+git tag v0.0.2
+
+# 태그 푸시
+git push origin v0.0.2
+```
+
+#### 2. GitHub Actions 자동 실행
+
+**워크플로우**: `.github/workflows/build-os-images.yml`
+
+**동작**:
+1. SSH 임시 키 생성
+2. 6개 아키텍처 × 2개 타입 = 12개 이미지 빌드
+3. 체크섬 생성
+4. GitHub Release 생성
+5. 이미지 업로드
+
+**소요 시간**: 약 60-90분 (병렬 빌드)
+
+#### 3. Docker 이미지 자동 푸시
+
+**워크플로우**: `.github/workflows/build-docker.yml`
+
+**동작**:
+1. Dockerfile 빌드
+2. ghcr.io에 푸시
+3. 태그 지정 (버전, latest)
+
+---
+
+## 📋 배포 체크리스트
+
+### 릴리스 전 체크리스트
+
+- [ ] 모든 테스트 통과
+- [ ] 문서 업데이트 (README.md, CHANGELOG.md)
+- [ ] 버전 번호 업데이트
+  - [ ] `cluster_config.yml` (주석)
+  - [ ] `Dockerfile` (LABEL)
+  - [ ] `README.md`
+  - [ ] `.github/workflows/*.yml` (예시)
+- [ ] 로컬 빌드 테스트
+- [ ] CHANGELOG.md 작성
+
+### 릴리스 과정
+
+1. **버전 결정** (Semantic Versioning)
+   - MAJOR.MINOR.PATCH
+   - 예: 0.0.2 → 0.0.3 (bugfix)
+   - 예: 0.0.2 → 0.1.0 (feature)
+   - 예: 0.1.0 → 1.0.0 (breaking change)
+
+2. **코드 업데이트**
+   ```bash
+   # 버전 번호 업데이트
+   git checkout -b release/v0.0.3
+
+   # 파일들 수정...
+
+   git add -A
+   git commit -m "chore: bump version to 0.0.3"
+   git push origin release/v0.0.3
+   ```
+
+3. **PR 생성 및 머지**
+   ```bash
+   gh pr create --title "Release v0.0.3" --body "..."
+   gh pr merge --squash
+   ```
+
+4. **태그 생성**
+   ```bash
+   git checkout main
+   git pull
+   git tag -a v0.0.3 -m "Release v0.0.3"
+   git push origin v0.0.3
+   ```
+
+5. **GitHub Actions 확인**
+   - https://github.com/nananina0415/recycluster/actions
+   - 빌드 성공 확인
+   - Release 페이지 확인
+
+6. **릴리스 노트 편집 (선택)**
+   - https://github.com/nananina0415/recycluster/releases
+   - 자동 생성된 릴리스 노트 수정
+
+---
+
+## 🔧 수동 빌드 및 배포
+
+### 로컬 빌드
+
+```bash
+# 단일 이미지
+bash scripts/build-single-image.sh x86_64 control 0.0.2
+
+# 모든 이미지
+bash scripts/build-all-images.sh 0.0.2
+```
+
+**출력**:
+```
+build/
+├── x86_64-control/
+│   ├── rccr-0.0.2-x86_64-control.iso
+│   └── SHA256SUMS
+├── x86_64-target/
+│   ├── rccr-0.0.2-x86_64-target.iso
+│   └── SHA256SUMS
+...
+```
+
+### 수동 GitHub Release 생성
 
 ```bash
 # GitHub CLI 사용
-gh release create v1.0.0 \
-  ~/packages/main/x86_64/rccr-1.0.0-r0.apk \
-  --title "RCCR v1.0.0" \
-  --notes "Initial release"
+gh release create v0.0.2 \
+  --title "RCCR v0.0.2" \
+  --notes "Release notes here..." \
+  build/*/*.iso \
+  build/*/*.img \
+  build/SHA256SUMS-all
 ```
 
-또는 웹 UI에서:
-1. GitHub 저장소 → Releases → Create a new release
-2. Tag: v1.0.0
-3. 파일 업로드: rccr-1.0.0-r0.apk
-4. Publish release
-
-#### 3-3. 사용자 설치 방법
+### Docker 이미지 수동 푸시
 
 ```bash
-# Release에서 다운로드
-wget https://github.com/nananina0415/recycluster/releases/download/v1.0.0/rccr-1.0.0-r0.apk
+# 로컬 빌드
+docker build -t ghcr.io/nananina0415/recycluster:0.0.2 .
+docker tag ghcr.io/nananina0415/recycluster:0.0.2 \
+           ghcr.io/nananina0415/recycluster:latest
 
-# 설치
-apk add --allow-untrusted rccr-1.0.0-r0.apk
+# 로그인
+echo $GITHUB_TOKEN | docker login ghcr.io -u nananina0415 --password-stdin
+
+# 푸시
+docker push ghcr.io/nananina0415/recycluster:0.0.2
+docker push ghcr.io/nananina0415/recycluster:latest
 ```
 
 ---
 
-## 권장 배포 전략
+## 📊 배포 전략 비교
 
-### 단계별 접근
+### APK 패키지 vs OS 이미지
 
-1. **초기 (지금)**
-   - GitHub Releases로 배포
-   - 사용자 피드백 수집
+| 항목 | APK 패키지 (구 방식) | OS 이미지 (현 방식) |
+|------|-------------------|-------------------|
+| **설치** | `apk add rccr` | SD 카드 플래시 |
+| **사전 요구사항** | Alpine 설치 필요 | 없음 (즉시 부팅) |
+| **초기화 시간** | ~10분 | ~2분 |
+| **SSH 설정** | 수동 | 자동 (임시 키) |
+| **버전 관리** | APK 저장소 | GitHub Releases |
+| **배포 복잡도** | 높음 | 낮음 |
+| **사용자 편의성** | 낮음 | 높음 |
 
-2. **중기 (안정화 후)**
-   - 개인 APK 저장소 구축
-   - CI/CD로 자동 빌드 및 배포
-
-3. **장기 (성숙 후)**
-   - Alpine 공식 저장소 등록 신청
-   - community/main 저장소 승격
-
----
-
-## 자동화 (CI/CD)
-
-### GitHub Actions 예시
-
-```yaml
-# .github/workflows/build-apk.yml
-name: Build APK
-
-on:
-  push:
-    tags:
-      - 'v*'
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    container:
-      image: alpine:latest
-
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Install dependencies
-        run: |
-          apk add alpine-sdk sudo
-          adduser -D builder
-          addgroup builder abuild
-          echo "builder ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
-
-      - name: Setup build environment
-        run: |
-          su builder -c "abuild-keygen -a -i -n"
-
-      - name: Build package
-        run: |
-          ./build-apk.sh
-          cd build
-          su builder -c "abuild checksum"
-          su builder -c "abuild -r"
-
-      - name: Upload to Release
-        uses: softprops/action-gh-release@v1
-        with:
-          files: /home/builder/packages/main/x86_64/rccr-*.apk
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-```
+**결론**: OS 이미지가 훨씬 사용하기 쉽고 배포도 간단합니다.
 
 ---
 
-## 체크리스트
+## 🌐 대체 배포 채널 (향후)
 
-### 배포 전 확인사항
+### 1. Docker Hub
 
-- [ ] APKBUILD 파일 검증
-- [ ] 모든 종속성 명시
-- [ ] 라이선스 파일 포함
-- [ ] README 및 문서 작성
-- [ ] 여러 Alpine 버전에서 테스트
-- [ ] 보안 검사 (취약점 스캔)
-
-### 품질 기준
+**현재**: GitHub Container Registry (ghcr.io)
+**향후**: Docker Hub 동시 배포 고려
 
 ```bash
-# 린트 검사
-apk-tools -q lint APKBUILD
-
-# 빌드 테스트
-abuild sanitycheck
-abuild -r
-
-# 설치 테스트
-apk add --allow-untrusted ~/packages/main/x86_64/rccr-*.apk
-rccr version
-rccr help
+# Docker Hub 푸시
+docker tag rccr nananina0415/rccr:0.0.2
+docker push nananina0415/rccr:0.0.2
 ```
+
+**장점**:
+- 더 넓은 사용자층
+- 검색 노출 향상
+
+**단점**:
+- 무료 계정 제약 (pull rate limit)
 
 ---
 
-## 버전 관리
+### 2. CDN (Cloudflare R2 / AWS S3)
 
-### Semantic Versioning
+**현재**: GitHub Releases
+**향후**: 대용량 파일 배포 시 CDN 고려
 
-- `1.0.0`: 초기 릴리스
-- `1.0.1`: 버그 수정
-- `1.1.0`: 새 기능 추가 (하위 호환)
-- `2.0.0`: 주요 변경 (하위 호환 깨짐)
+**장점**:
+- 빠른 다운로드
+- 대역폭 제한 없음
+- 글로벌 배포
 
-### APKBUILD 버전 업데이트
+**단점**:
+- 비용 발생
+- 추가 인프라 관리
+
+---
+
+### 3. BitTorrent
+
+**향후**: 대규모 배포 시 P2P 고려
+
+**장점**:
+- 대역폭 분산
+- 빠른 다운로드 (피어 많을 때)
+
+**단점**:
+- 복잡한 설정
+- 초기 시드 필요
+
+---
+
+## 📈 배포 모니터링
+
+### GitHub Releases 다운로드 통계
 
 ```bash
-# pkgver: 소프트웨어 버전
-pkgver=1.0.1
+# GitHub CLI로 다운로드 수 확인
+gh release view v0.0.2 --json assets --jq '.assets[] | {name: .name, downloads: .download_count}'
+```
 
-# pkgrel: 패키지 릴리스 번호 (같은 버전의 재빌드 시 증가)
-pkgrel=0
+### Docker 이미지 Pull 통계
+
+- GitHub Packages Insights 확인
+- https://github.com/nananina0415/recycluster/pkgs/container/recycluster
+
+---
+
+## 🔐 보안 고려사항
+
+### 1. 체크섬 검증
+
+**필수**: 모든 릴리스에 SHA256SUMS 제공
+
+```bash
+# 빌드 시 자동 생성
+cd build
+sha256sum *.iso *.img > SHA256SUMS
+
+# 사용자 검증
+sha256sum -c SHA256SUMS
+```
+
+### 2. 서명 (향후)
+
+**GPG 서명** 추가 고려:
+
+```bash
+# 릴리스 서명
+gpg --armor --detach-sign SHA256SUMS
+
+# 사용자 검증
+gpg --verify SHA256SUMS.asc SHA256SUMS
+```
+
+### 3. SSH 임시 키 보안
+
+**중요**:
+- 임시 키는 GitHub에 커밋하지 않음 (`.gitignore`)
+- 빌드 시마다 새로 생성
+- 이미지에 포함되지만 첫 셋업 시 즉시 교체됨
+
+---
+
+## 📝 릴리스 노트 템플릿
+
+```markdown
+# RCCR v0.0.3
+
+## 🎉 주요 변경사항
+
+- 새 기능 추가
+- 버그 수정
+- 성능 개선
+
+## 📦 다운로드
+
+### OS 이미지
+
+**Control 노드:**
+- [x86_64](https://github.com/nananina0415/recycluster/releases/download/v0.0.3/rccr-0.0.3-x86_64-control.iso)
+- [aarch64](https://github.com/nananina0415/recycluster/releases/download/v0.0.3/rccr-0.0.3-aarch64-control.img)
+
+**Target 노드:**
+- [x86_64](https://github.com/nananina0415/recycluster/releases/download/v0.0.3/rccr-0.0.3-x86_64-target.iso)
+- [aarch64](https://github.com/nananina0415/recycluster/releases/download/v0.0.3/rccr-0.0.3-aarch64-target.img)
+
+**체크섬:**
+- [SHA256SUMS](https://github.com/nananina0415/recycluster/releases/download/v0.0.3/SHA256SUMS)
+
+### Docker 이미지
+
+```bash
+docker pull ghcr.io/nananina0415/recycluster:0.0.3
+```
+
+## 🐛 버그 수정
+
+- #123: 네트워크 스캔 오류 수정
+- #124: SSH 키 교체 실패 수정
+
+## ✨ 새 기능
+
+- Avahi mDNS 지원 추가
+- 호스트명 자동 광고
+
+## 📖 문서
+
+- [README.md](https://github.com/nananina0415/recycluster/blob/v0.0.3/README.md)
+- [IMAGE_BUILD_STRATEGY.md](https://github.com/nananina0415/recycluster/blob/v0.0.3/IMAGE_BUILD_STRATEGY.md)
+
+## 🔍 체크섬 검증
+
+```bash
+sha256sum -c SHA256SUMS
 ```
 
 ---
 
-## 추가 리소스
+**전체 변경사항**: [v0.0.2...v0.0.3](https://github.com/nananina0415/recycluster/compare/v0.0.2...v0.0.3)
+```
 
-- Alpine Wiki: https://wiki.alpinelinux.org
-- APK Tools: https://gitlab.alpinelinux.org/alpine/apk-tools
-- Alpine Packages: https://pkgs.alpinelinux.org
-- Packaging Guide: https://wiki.alpinelinux.org/wiki/Creating_an_Alpine_package
+---
+
+## 🎯 장기 배포 로드맵
+
+### Phase 1: GitHub 기반 (현재)
+- ✅ GitHub Releases (OS 이미지)
+- ✅ GitHub Container Registry (Docker)
+
+### Phase 2: 다중 채널
+- ⏳ Docker Hub 동시 배포
+- ⏳ 릴리스 자동화 개선
+
+### Phase 3: CDN 및 최적화
+- ⏳ Cloudflare R2 연동
+- ⏳ 미러 서버 추가
+- ⏳ 다운로드 속도 최적화
+
+### Phase 4: 커뮤니티
+- ⏳ Alpine 공식 저장소 등록 검토
+- ⏳ Package Manager 연동 (Homebrew, apt 등)
+
+---
+
+## 📞 배포 관련 문의
+
+이슈 생성: https://github.com/nananina0415/recycluster/issues
+
+---
+
+**작성일**: 2025-12-30
+**버전**: 0.0.2
+**배포 방식**: OS 이미지 (GitHub Releases) + Docker (ghcr.io)
