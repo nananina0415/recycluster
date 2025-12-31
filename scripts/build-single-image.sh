@@ -61,22 +61,31 @@ OUTPUT_DIR="$PROJECT_ROOT/build/$ARCH-$TYPE"
 # Alpine version
 ALPINE_VERSION="3.19"
 
-# Docker platform mapping
+# Architecture mapping for Alpine and Docker
 case "$ARCH" in
     x86)
         PLATFORM="linux/386"
+        ALPINE_ARCH="x86"
         ;;
     x86_64)
         PLATFORM="linux/amd64"
+        ALPINE_ARCH="x86_64"
         ;;
-    aarch64|rpi-aarch64)
+    aarch64)
         PLATFORM="linux/arm64"
+        ALPINE_ARCH="aarch64"
+        ;;
+    rpi-aarch64)
+        PLATFORM="linux/arm64"
+        ALPINE_ARCH="aarch64"  # Raspberry Pi uses standard aarch64
         ;;
     armv7)
         PLATFORM="linux/arm/v7"
+        ALPINE_ARCH="armv7"
         ;;
     armhf)
         PLATFORM="linux/arm/v6"
+        ALPINE_ARCH="armhf"
         ;;
     *)
         print_error "Unsupported architecture: $ARCH"
@@ -88,7 +97,7 @@ print_info "╔═════════════════════�
 print_info "║           RCCR Image Builder                                      ║"
 print_info "╚═══════════════════════════════════════════════════════════════════╝"
 echo ""
-print_info "Architecture: $ARCH"
+print_info "Architecture: $ARCH (Alpine: $ALPINE_ARCH)"
 print_info "Type: $TYPE"
 print_info "Version: $VERSION"
 print_info "Platform: $PLATFORM"
@@ -215,7 +224,7 @@ docker run --rm --privileged \
         sh mkimage.sh \
             --tag ${ALPINE_VERSION} \
             --outdir /output \
-            --arch ${ARCH//-/_} \
+            --arch ${ALPINE_ARCH} \
             --repository http://dl-cdn.alpinelinux.org/alpine/v${ALPINE_VERSION}/main \
             --repository http://dl-cdn.alpinelinux.org/alpine/v${ALPINE_VERSION}/community \
             --profile rccr_${TYPE}
