@@ -1,39 +1,37 @@
-# RCCR Windows 자동 접속 스크립트
-# Control 노드를 자동으로 찾아서 SSH 접속합니다.
+# RCCR Windows Auto-Connect Script
+# Automatically finds and connects to Control node
 
 param(
-    [string]$Subnet = "192.168.1",  # 네트워크 대역 (예: 192.168.1)
-    [string]$Hostname = "ReCyClusteR-Node",  # 찾을 호스트명
-    [string]$Username = "root"  # SSH 사용자명
+    [string]$Subnet = "192.168.1",
+    [string]$Hostname = "ReCyClusteR-Node",
+    [string]$Username = "root"
 )
 
-Write-Host "╔═══════════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
-Write-Host "║                                                                   ║" -ForegroundColor Cyan
-Write-Host "║         RCCR Windows Auto-Connect Script                         ║" -ForegroundColor Cyan
-Write-Host "║                                                                   ║" -ForegroundColor Cyan
-Write-Host "╚═══════════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
+Write-Host "=================================================================" -ForegroundColor Cyan
+Write-Host "         RCCR Windows Auto-Connect Script                      " -ForegroundColor Cyan
+Write-Host "=================================================================" -ForegroundColor Cyan
 Write-Host ""
 
-# 1. 네트워크 스캔
-$networkRange = "$Subnet.0/24"
+# 1. Network scan
+$networkRange = $Subnet + ".0/24"
 Write-Host "[1/3] Scanning network $networkRange for active hosts..." -ForegroundColor Yellow
 Write-Host "      (This may take 5-10 seconds)" -ForegroundColor Gray
 
 $activeHosts = @()
-$subnetPrefix = $Subnet
+$subnetBase = $Subnet
 1..254 | ForEach-Object -Parallel {
-    $ip = "$($using:subnetPrefix).$_"
+    $ip = $using:subnetBase + "." + $_
     if (Test-Connection -ComputerName $ip -Count 1 -TimeoutSeconds 1 -Quiet) {
         $ip
     }
 } -ThrottleLimit 50 | ForEach-Object {
     $activeHosts += $_
-    Write-Host "      ✓ Found: $_" -ForegroundColor Green
+    Write-Host "      Found: $_" -ForegroundColor Green
 }
 
 if ($activeHosts.Count -eq 0) {
     Write-Host ""
-    Write-Host "❌ No active hosts found on network $networkRange" -ForegroundColor Red
+    Write-Host "ERROR: No active hosts found on network $networkRange" -ForegroundColor Red
     Write-Host ""
     Write-Host "Tips:" -ForegroundColor Yellow
     Write-Host "  1. Check if Control node is powered on" -ForegroundColor Gray
@@ -46,14 +44,14 @@ Write-Host ""
 Write-Host "Found $($activeHosts.Count) active host(s)" -ForegroundColor Green
 Write-Host ""
 
-# 2. SSH로 호스트명 확인
+# 2. Check hostnames via SSH
 Write-Host "[2/3] Checking hostnames via SSH..." -ForegroundColor Yellow
 
 $matchedHost = $null
 foreach ($ip in $activeHosts) {
     Write-Host "      Trying $ip..." -ForegroundColor Gray -NoNewline
 
-    # SSH로 호스트명 확인 (타임아웃 2초)
+    # Check hostname via SSH (timeout 2 seconds)
     $result = ssh -o ConnectTimeout=2 -o StrictHostKeyChecking=no -o BatchMode=yes "$Username@$ip" "hostname" 2>$null
 
     if ($LASTEXITCODE -eq 0 -and $result) {
@@ -61,7 +59,7 @@ foreach ($ip in $activeHosts) {
 
         if ($result -like "*$Hostname*") {
             $matchedHost = $ip
-            Write-Host "      ✓ Match found!" -ForegroundColor Green
+            Write-Host "      Match found!" -ForegroundColor Green
             break
         }
     } else {
@@ -72,7 +70,7 @@ foreach ($ip in $activeHosts) {
 Write-Host ""
 
 if ($null -eq $matchedHost) {
-    Write-Host "❌ No host with hostname '$Hostname' found" -ForegroundColor Red
+    Write-Host "ERROR: No host with hostname '$Hostname' found" -ForegroundColor Red
     Write-Host ""
     Write-Host "Possible reasons:" -ForegroundColor Yellow
     Write-Host "  1. Control node not booted yet" -ForegroundColor Gray
@@ -86,20 +84,18 @@ if ($null -eq $matchedHost) {
     exit 1
 }
 
-# 3. 접속
+# 3. Connect
 Write-Host "[3/3] Connecting to Control node..." -ForegroundColor Yellow
 Write-Host ""
-Write-Host "╔═══════════════════════════════════════════════════════════════════╗" -ForegroundColor Green
-Write-Host "║  Control Node Found!                                             ║" -ForegroundColor Green
-$ipLine = "║  IP Address: $matchedHost"
-Write-Host ($ipLine.PadRight(68) + "║") -ForegroundColor Green
-$hostLine = "║  Hostname: $Hostname"
-Write-Host ($hostLine.PadRight(68) + "║") -ForegroundColor Green
-Write-Host "╚═══════════════════════════════════════════════════════════════════╝" -ForegroundColor Green
+Write-Host "=================================================================" -ForegroundColor Green
+Write-Host "  Control Node Found!                                          " -ForegroundColor Green
+Write-Host "  IP Address: $matchedHost" -ForegroundColor Green
+Write-Host "  Hostname: $Hostname" -ForegroundColor Green
+Write-Host "=================================================================" -ForegroundColor Green
 Write-Host ""
 
-# hosts 파일 업데이트 제안
-Write-Host "💡 Tip: Add to hosts file for easier access:" -ForegroundColor Cyan
+# Suggest updating hosts file
+Write-Host "Tip: Add to hosts file for easier access:" -ForegroundColor Cyan
 Write-Host "   $matchedHost   rccr-control" -ForegroundColor Gray
 Write-Host "   Then use: ssh root@rccr-control" -ForegroundColor Gray
 Write-Host ""
@@ -108,5 +104,5 @@ Start-Sleep -Seconds 1
 Write-Host "Connecting..." -ForegroundColor Yellow
 Write-Host ""
 
-# SSH 접속
+# SSH connection
 ssh "$Username@$matchedHost"
