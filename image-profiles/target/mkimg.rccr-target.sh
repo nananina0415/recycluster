@@ -11,6 +11,7 @@ profile_rccr_target() {
 	kernel_cmdline="modules=loop,squashfs,sd-mod,usb-storage quiet"
 	hostname="ReCyClusteR-Target"
 	modloop_sign=no  # Disable kernel module signing (no private key)
+	kernel_addons=""  # Disable xtables-addons (not available for rpi kernel)
 
 	# Use Raspberry Pi kernel for ARM architectures
 	case "$ARCH" in
