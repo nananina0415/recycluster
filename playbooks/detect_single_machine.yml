@@ -24,17 +24,27 @@
   register: new_scan
   changed_when: false
 
+- name: Debug nmap output
+  ansible.builtin.debug:
+    msg: "{{ new_scan.stdout_lines }}"
+  when: false  # Set to true for debugging
+
 - name: Parse new scan results
   ansible.builtin.set_fact:
     current_hosts: "{{ new_scan.stdout_lines |
-      select('match', '^Host:.*' + hostname_filter) |
-      map('regex_findall', 'Host: ([0-9.]+) \\(([^)]+)\\)') |
+      select('match', '^Host:.*\\(' + hostname_filter + '.*\\)') |
+      map('regex_replace', '^Host: ([0-9.]+) \\(([^)]+)\\).*$', '\\1,\\2') |
       list }}"
 
-- name: Extract new host IP
+- name: Debug parsed hosts
+  ansible.builtin.debug:
+    msg: "Parsed hosts: {{ current_hosts }}"
+  when: false  # Set to true for debugging
+
+- name: Extract new host IP and hostname
   ansible.builtin.set_fact:
-    new_host_ip: "{{ current_hosts[0][0][0] if current_hosts | length > 0 and current_hosts[0] | length > 0 else '' }}"
-    new_host_name: "{{ current_hosts[0][0][1] if current_hosts | length > 0 and current_hosts[0] | length > 0 else '' }}"
+    new_host_ip: "{{ current_hosts[0].split(',')[0] if current_hosts | length > 0 else '' }}"
+    new_host_name: "{{ current_hosts[0].split(',')[1] if current_hosts | length > 0 else '' }}"
 
 - name: Display detected host
   ansible.builtin.debug:
