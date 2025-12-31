@@ -9,7 +9,7 @@ profile_rccr_target() {
 	arch="x86 x86_64 aarch64 armv7 armhf"
 	output_format="iso"
 	kernel_cmdline="modules=loop,squashfs,sd-mod,usb-storage quiet"
-	hostname="ReCyClusteR-Target"
+	hostname="ReCyClusteR-Node"
 	modloop_sign=no  # Disable kernel module signing (no private key)
 	kernel_addons=""  # Disable xtables-addons (not available for rpi kernel)
 

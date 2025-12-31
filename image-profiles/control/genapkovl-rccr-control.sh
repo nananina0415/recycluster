@@ -5,7 +5,7 @@
 
 HOSTNAME="$1"
 if [ -z "$HOSTNAME" ]; then
-	HOSTNAME="ReCyClusteR-Control"
+	HOSTNAME="ReCyClusteR-Node"
 fi
 
 cleanup() {
@@ -157,7 +157,7 @@ EOF
 mkdir -p "$tmp"/etc/avahi
 cat > "$tmp"/etc/avahi/avahi-daemon.conf <<'EOF'
 [server]
-host-name=ReCyClusteR-Control
+host-name=ReCyClusteR-Node
 domain-name=local
 use-ipv4=yes
 use-ipv6=no
@@ -221,7 +221,7 @@ cat <<'MOTD'
 ╚═══════════════════════════════════════════════════════════════════╝
 
 System Information:
-  Hostname: ReCyClusteR-Control
+  Hostname: ReCyClusteR-Node
   Type: Control Node (Cluster Manager)
   OS: Alpine Linux
 

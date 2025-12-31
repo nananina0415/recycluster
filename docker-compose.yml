@@ -3,7 +3,7 @@ version: '3.8'
 services:
   rccr:
     build: .
-    image: ghcr.io/nananina0415/rccr:latest
+    image: ghcr.io/nananina0415/recycluster:latest
     container_name: rccr-setup
     volumes:
       # 현재 디렉토리를 컨테이너의 /workspace에 마운트
