@@ -194,8 +194,15 @@ docker run --rm --privileged \
         echo '═══════════════════════════════════════════════════════════════════'
         echo 'Downloading Alpine aports (for mkimage.sh)...'
         echo '═══════════════════════════════════════════════════════════════════'
-        git clone --depth 1 --branch ${ALPINE_VERSION}-stable \
-            https://gitlab.alpinelinux.org/alpine/aports.git /aports
+
+        # Try GitHub mirror first (more reliable in GitHub Actions)
+        if ! git clone --depth 1 --branch ${ALPINE_VERSION}-stable \
+            https://github.com/alpinelinux/aports.git /aports; then
+            echo \"⚠ GitHub mirror failed, trying GitLab...\"
+            git clone --depth 1 --branch ${ALPINE_VERSION}-stable \
+                https://gitlab.alpinelinux.org/alpine/aports.git /aports
+        fi
+
         cd /aports/scripts
 
         echo ''
