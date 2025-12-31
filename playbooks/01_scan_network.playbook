@@ -45,7 +45,7 @@
     - name: Parse initial hosts from scan
       ansible.builtin.set_fact:
         initial_hosts: "{{ initial_scan.stdout_lines |
-          select('match', '^Host: [0-9]') |
+          select('search', 'Status: Up') |
           map('regex_replace', '^Host: ([0-9.]+) .*$', '\\1') |
           list }}"
 
