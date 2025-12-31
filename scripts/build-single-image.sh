@@ -166,6 +166,7 @@ print_info "Building image (this may take several minutes)..."
 print_info ""
 
 docker run --rm --privileged \
+    -e "RCCR_ARCH=$ARCH" \
     -v "$PROFILE_DIR:/profile:ro" \
     -v "$OUTPUT_DIR:/output" \
     -v "/tmp/rccr-ssh:/tmp/rccr-ssh:ro" \
