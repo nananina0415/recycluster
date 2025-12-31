@@ -52,7 +52,7 @@ ssh_args = -o ControlMaster=auto -o ControlPersist=60s\n' > /etc/ansible/ansible
 WORKDIR /workspace
 
 # Create entrypoint script
-RUN printf '#!/bin/bash\n\
+RUN printf '#!/bin/sh\n\
 set -e\n\
 \n\
 # Display banner\n\
