@@ -79,15 +79,37 @@ jobs:
 
       - name: Build OS image
         run: |
+          echo "=== Starting build ==="
+          echo "Architecture: ${{ matrix.arch }}"
+          echo "Type: ${{ matrix.type }}"
+          echo "Version: ${{ steps.version.outputs.VERSION }}"
+          echo ""
+
           bash scripts/build-single-image.sh \
             ${{ matrix.arch }} \
             ${{ matrix.type }} \
             ${{ steps.version.outputs.VERSION }}
 
+          echo ""
+          echo "=== Build completed ==="
+
       - name: List built files
         run: |
-          echo "Built files:"
-          find build/${{ matrix.arch }}-${{ matrix.type }} -type f -ls
+          echo "=== Built files in build/${{ matrix.arch }}-${{ matrix.type }}/ ==="
+          ls -lah build/${{ matrix.arch }}-${{ matrix.type }}/
+
+          echo ""
+          echo "=== Looking for ISO/IMG files ==="
+          find build/${{ matrix.arch }}-${{ matrix.type }} -type f \( -name "*.iso" -o -name "*.img" \) -ls
+
+          echo ""
+          echo "=== Checking if files exist ==="
+          if ! ls build/${{ matrix.arch }}-${{ matrix.type }}/rccr-*.iso 1> /dev/null 2>&1; then
+            echo "ERROR: No ISO file found!"
+            echo "Build may have failed. Check the build logs above."
+            exit 1
+          fi
+          echo "✓ ISO file found"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -122,14 +144,35 @@ jobs:
       - name: Prepare release files
         run: |
           mkdir -p release
-          find artifacts -type f \( -name "*.iso" -o -name "*.img" \) -exec cp {} release/ \;
+
+          echo "=== Artifact structure ==="
+          ls -laR artifacts/
+
+          echo ""
+          echo "=== Finding ISO/IMG files ==="
+          find artifacts -type f \( -name "*.iso" -o -name "*.img" \)
+
+          echo ""
+          echo "=== Copying files to release/ ==="
+          find artifacts -type f \( -name "*.iso" -o -name "*.img" \) -exec cp -v {} release/ \;
+
+          echo ""
+          echo "=== Checking release directory ==="
+          ls -lh release/
+
+          # Check if we have any files
+          if [ -z "$(ls -A release/)" ]; then
+            echo "ERROR: No ISO/IMG files found in artifacts!"
+            exit 1
+          fi
 
           # Generate master checksum
           cd release
           sha256sum * > SHA256SUMS
           cd ..
 
-          echo "Release files:"
+          echo ""
+          echo "=== Final release files ==="
           ls -lh release/
 
       - name: Extract version
