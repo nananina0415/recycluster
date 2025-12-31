@@ -1,343 +1,529 @@
-# RCCR (ReCyClusteR)
+# RCCR (ReCyClusteR) v0.0.2
 
-네트워크상의 머신을 자동으로 감지하고 클러스터로 구성하는 셋업 도구입니다.
+> Alpine Linux 기반 클러스터 자동 셋업 도구
 
-## 특징
+네트워크상의 머신을 자동으로 감지하고 클러스터로 구성하는 **즉시 사용 가능한 OS 이미지**를 제공합니다.
 
-- 🔍 **자동 머신 감지**: 네트워크에 연결된 머신을 실시간으로 감지
-- 🗺️ **대화형 노드 매핑**: 감지된 머신을 설정 파일의 노드와 자동 매핑
-- 📦 **컨테이너 자동 배포**: 각 노드에 정의된 컨테이너를 자동으로 배포
-- 🎯 **간단한 설정**: YAML 파일로 클러스터 전체를 정의
-- 📦 **APK 패키지**: Alpine Linux에서 간편하게 설치
+## ✨ 특징
 
-## 요구사항
+- 🚀 **즉시 부팅 가능**: ISO/IMG 파일을 플래시하여 바로 사용
+- 🔍 **자동 호스트 감지**: `ReCyClusteR` 호스트명 기반 자동 필터링
+- 🤖 **Ansible 100%**: Python 스크립트 없이 순수 Ansible 플레이북
+- 🔐 **보안 자동화**: SSH 임시 키 자동 교체
+- 📦 **사전 구성**: Ansible, nmap, Docker 설치 완료
+- 🎯 **단일 설정 파일**: `cluster_config.yml` 하나로 모든 설정 관리
+- 🏗️ **Control/Target 구조**: 명확한 노드 역할 구분
 
-### 클러스터 노드 (Alpine Linux)
-- Alpine Linux
-- SSH 접근 가능
-- 네트워크 연결
+## 🎯 사용 사례
 
-### 셋업 머신 (어디서든 실행 가능)
-- **Docker** (권장) - Windows/Mac/Linux 모두 지원
-- 또는 **Alpine Linux** - APK 패키지 설치
+- 홈랩 클러스터 구축
+- Raspberry Pi 클러스터 셋업
+- Alpine Linux 기반 경량 클러스터
+- Docker Swarm/Kubernetes 기반 인프라
 
-## 설치
+---
 
-### Docker (권장 - Windows/Mac/Linux 모두 지원)
+## 📦 설치
 
-Docker를 사용하면 **어떤 OS에서든** 클러스터를 셋업할 수 있습니다!
+### 방법 1: OS 이미지 다운로드 (권장)
+
+즉시 부팅 가능한 이미지를 다운로드하여 SD 카드/USB에 플래시합니다.
+
+#### 1.1. 이미지 다운로드
+
+**[GitHub Releases](https://github.com/nananina0415/recycluster/releases)** 에서 다운로드:
+
+| 노드 타입 | 설명 | 용도 |
+|----------|------|------|
+| **Control** | 클러스터 관리 노드 | Ansible, nmap 사전 설치 |
+| **Target** | 워커 노드 | Docker 사전 설치 |
+
+| 아키텍처 | 설명 | 예시 |
+|---------|------|------|
+| `x86_64` | 64-bit x86 | 현대 PC, 서버 |
+| `aarch64` | 64-bit ARM | Raspberry Pi 3/4/5 |
+| `rpi-aarch64` | 라즈베리파이용 ARM64 | Raspberry Pi 전용 |
+| `armv7` | 32-bit ARMv7 | Raspberry Pi 2/3 |
+| `armhf` | 32-bit ARM | Raspberry Pi 1/Zero |
+| `x86` | 32-bit x86 | 구형 PC |
 
 ```bash
-# Docker 이미지 다운로드
+# Control 노드 (x86_64 예시)
+wget https://github.com/nananina0415/recycluster/releases/latest/download/rccr-0.0.2-x86_64-control.iso
+
+# Target 노드 (aarch64 예시)
+wget https://github.com/nananina0415/recycluster/releases/latest/download/rccr-0.0.2-aarch64-target.img
+```
+
+#### 1.2. 체크섬 검증
+
+```bash
+# SHA256 체크섬 다운로드
+wget https://github.com/nananina0415/recycluster/releases/latest/download/SHA256SUMS
+
+# 검증
+sha256sum -c SHA256SUMS
+```
+
+#### 1.3. 부팅 미디어 생성
+
+**Linux/Mac:**
+```bash
+# USB/SD 카드 확인
+lsblk
+
+# 플래시 (주의: /dev/sdX를 올바른 디바이스로 변경)
+sudo dd if=rccr-0.0.2-x86_64-control.iso of=/dev/sdX bs=4M status=progress
+sync
+```
+
+**Windows:**
+- [Rufus](https://rufus.ie/) 또는 [Etcher](https://www.balena.io/etcher/) 사용
+- ISO/IMG 파일 선택 후 플래시
+
+#### 1.4. 부팅
+
+1. SD 카드/USB를 머신에 삽입
+2. 전원 켜기
+3. 자동으로 Alpine Linux 부팅
+
+**기본 설정:**
+- **Control 노드**: 호스트명 `ReCyClusteR-Control`
+- **Target 노드**: 호스트명 `ReCyClusteR-Target`
+- **사용자**: `root` (SSH 키 인증)
+- **임시 SSH 키**: 이미지에 포함 (자동 교체됨)
+
+---
+
+### 방법 2: Docker (개발/테스트용)
+
+Docker를 사용하면 Windows/Mac/Linux에서 RCCR을 실행할 수 있습니다.
+
+```bash
+# 이미지 다운로드
 docker pull ghcr.io/nananina0415/recycluster:latest
 
-# 또는 로컬에서 빌드
+# 또는 로컬 빌드
 git clone https://github.com/nananina0415/recycluster.git
 cd recycluster
 docker build -t rccr .
 ```
 
-### Alpine Linux (APK)
+---
 
-#### GitHub Releases에서 다운로드 (권장)
+## 🚀 빠른 시작
 
-아키텍처에 맞는 패키지를 다운로드하세요:
+### Control 노드에서 실행
 
-| 아키텍처 | 설명 |
-|---------|------|
-| `x86` | 32-bit x86 (구형 PC) |
-| `x86_64` | 64-bit x86 (일반 PC/서버) |
-| `armhf` | 32-bit ARM (Raspberry Pi 1/Zero) |
-| `armv7` | 32-bit ARMv7 (일반 ARM 기기) |
-| `aarch64` | 64-bit ARM (Raspberry Pi 3/4, ARM64) |
+#### 1. Control 노드 부팅
 
-설치 예시:
+Control 노드 이미지로 부팅한 머신에 로그인:
 
 ```bash
-# x86_64 (일반 PC/서버)
-wget https://github.com/nananina0415/recycluster/releases/latest/download/rccr-0.0.2-x86_64.apk
-apk add --allow-untrusted rccr-0.0.1-x86_64.apk
+# SSH로 접속 (임시 키로 인증)
+ssh root@<control-node-ip>
 
-# aarch64 (Raspberry Pi 3/4, 64-bit ARM)
-wget https://github.com/nananina0415/recycluster/releases/latest/download/rccr-0.0.2-aarch64.apk
-apk add --allow-untrusted rccr-0.0.1-aarch64.apk
-
-# armhf (Raspberry Pi 1/Zero)
-wget https://github.com/nananina0415/recycluster/releases/latest/download/rccr-0.0.2-armhf.apk
-apk add --allow-untrusted rccr-0.0.1-armhf.apk
+# 또는 직접 콘솔 로그인
 ```
 
-아키텍처 확인:
+#### 2. 설정 파일 편집
 
 ```bash
-# 현재 시스템 아키텍처 확인
-uname -m
-
-# 출력 예시:
-# x86_64    → x86_64 패키지 사용
-# aarch64   → aarch64 패키지 사용
-# armv7l    → armv7 패키지 사용
-# armv6l    → armhf 패키지 사용
-```
-
-#### APK 저장소에서 설치 (향후)
-
-```bash
-# 공식 저장소 등록 후
-apk add rccr
-```
-
-### 소스에서 빌드
-
-```bash
-git clone https://github.com/nananina0415/recycluster.git
-cd recycluster
-./build-apk.sh
-
-# Alpine Linux에서
-cd build
-abuild checksum
-abuild -r
-sudo apk add --allow-untrusted ~/packages/main/x86_64/rccr-0.0.2.apk
-```
-
-## 빠른 시작
-
-### Docker 사용 (Windows/Mac/Linux)
-
-```bash
-# 1. 작업 디렉토리 생성
-mkdir my-cluster
-cd my-cluster
-
-# 2. 프로젝트 초기화
-docker run -it -v ${PWD}:/workspace ghcr.io/nananina0415/recycluster:latest init
-
-# 3. 설정 파일 편집
-notepad cluster_config.yml  # Windows
-# 또는
-vim cluster_config.yml      # Linux/Mac
-
-# 4. 셋업 실행 (네트워크 스캔 및 클러스터 배포)
-docker run -it -v ${PWD}:/workspace --network host ghcr.io/nananina0415/recycluster:latest setup
-```
-
-### Alpine Linux 사용
-
-```bash
-# 1. 작업 디렉토리 생성
-mkdir my-cluster
-cd my-cluster
-
-# 2. 프로젝트 초기화
-rccr init
-
-# 3. 설정 파일 편집
-vi cluster_config.yml
-
-# 4. 셋업 실행
-sudo rccr setup
-```
-
-### 설정 파일 예시
-
-```bash
+cd /root/rccr
 vi cluster_config.yml
 ```
 
-`cluster_config.yml` 파일을 열어 클러스터 구성을 정의합니다:
+**예시 설정:**
 
 ```yaml
+cluster_name: my-cluster
+
 network_config:
-  subnet: "192.168.219.0/24"
-  gateway: "192.168.219.1"
-  dns: "1.1.1.1 4.4.4.4"
+  subnet: "192.168.1.0/24"
+  gateway: "192.168.1.1"
+  dns: "1.1.1.1 8.8.8.8"
+  hostname_filter: "ReCyClusteR"  # 이 호스트명 패턴만 감지
 
 machines:
-  - name: laptop-1
-    ip: 192.168.219.201
+  - name: rccr-control
+    ip: 192.168.1.200
+    detected_ip: null  # 자동 업데이트됨
     role: manager
-    containers:
-      - storage
-      - task_queue
-      - runnin_gmate
+    type: control
+    containers: []
 
-  - name: rpi3-1
-    ip: 192.168.219.202
+  - name: rccr-node-1
+    ip: 192.168.1.201
+    detected_ip: null
     role: worker
+    type: target
     containers:
-      - runner
+      - nginx
+      - redis
+
+  - name: rccr-node-2
+    ip: 192.168.1.202
+    detected_ip: null
+    role: worker
+    type: target
+    containers:
+      - postgres
 ```
 
-### 4. 셋업 실행
+#### 3. 클러스터 셋업 실행
 
 ```bash
-sudo rccr setup
+cd /root/rccr
+ansible-playbook setup.playbook
 ```
 
-### 5. 대화형 안내에 따라 진행
-
-셋업 스크립트가 실행되면 다음과 같은 안내가 표시됩니다:
+**진행 과정:**
 
 ```
-=================================================================
-  RCCR (ReCyClusteR) Setup
-=================================================================
+╔═══════════════════════════════════════════════════════════════════╗
+║            RCCR (ReCyClusteR) Cluster Setup v0.0.2               ║
+║                  Alpine Linux Cluster Manager                    ║
+╚═══════════════════════════════════════════════════════════════════╝
 
-서브넷 192.168.219.0/24 를 스캔합니다...
-현재 0개의 호스트 감지됨.
+Phase 1: Network Scanning
+═══════════════════════════════════════════════════════════════════
 
-┌─────────────────────────────────────────────────────────────────┐
-│ [1/4] 다음 노드를 네트워크에 연결해주세요                        │
-├─────────────────────────────────────────────────────────────────┤
-│ 노드명:       laptop-1                                          │
-│ 할당 IP:      192.168.219.201                                   │
-│ 역할:         manager                                           │
-│ 컨테이너:     - storage                                         │
-│              - task_queue                                       │
-│              - runnin_gmate                                     │
-└─────────────────────────────────────────────────────────────────┘
+Machine 1/3
+═══════════════════════════════════════════════════════════════════
+Name: rccr-node-1
+Role: worker
+Expected IP: 192.168.1.201
 
-머신을 연결(전원 켜기 또는 랜선 연결)하고 Enter를 누르세요...
+Please:
+1. Power on the machine
+2. Wait for it to boot
+3. Press ENTER when ready to scan...
+
+[Enter를 누르면 네트워크 스캔]
+
+✓ Host detected!
+IP: 192.168.1.201
+Hostname: ReCyClusteR-Target
+Mapping to: rccr-node-1
 ```
 
-각 노드를 순서대로 연결하고 Enter를 누르면 자동으로 감지되어 매핑됩니다.
+**자동으로 수행되는 작업:**
+1. 🔍 네트워크 스캔 (호스트명 `ReCyClusteR*` 필터링)
+2. 🗺️ 감지된 호스트와 설정 노드 매핑
+3. 🔐 SSH 키 교체 (임시 키 → 새 키)
+4. ⚙️ 머신 레이어 구성 (호스트명, 네트워크)
+5. 🐳 Docker 설치 및 컨테이너 배포
 
-## 동작 원리
+#### 4. 완료 확인
 
-### 1단계: 종속성 설치
-- Python 3, pip, nmap, Ansible 등 필요한 도구 자동 설치
-- Alpine Linux APK 패키지 관리자 사용
+```bash
+# 모든 노드 연결 확인
+ansible all -m ping
 
-### 2단계: 노드 감지 및 매핑
-- 네트워크 스냅샷을 생성하여 현재 상태 저장
-- 사용자가 머신을 연결할 때마다 네트워크를 재스캔
-- 스냅샷 비교를 통해 새로 추가된 머신 자동 감지
-- 감지된 머신을 설정 파일의 노드와 순서대로 매핑
+# 노드 정보 확인
+ansible all -m setup
 
-### 3단계: 설정 파일 업데이트
-- 감지된 IP 주소를 `cluster_config.yml`의 `detected_ip` 필드에 저장
-- `cluster_config.yml`이 단일 정보 소스로 사용됨
+# Docker 컨테이너 확인
+ansible all -a "docker ps"
+```
 
-### 4단계: 클러스터 배포
-- Ansible playbook을 사용하여 각 노드 설정
-- 각 노드에 Docker 설치 (노드는 다양한 Linux 배포판 가능)
-- 컨테이너 이미지 다운로드 및 실행
+---
 
-## 프로젝트 구조
+## 🐳 Docker 사용 (개발/테스트)
+
+Docker 환경에서도 동일하게 사용 가능:
+
+```bash
+# 1. 설정 파일 템플릿 생성
+docker run -it -v ${PWD}:/workspace rccr init
+
+# 2. 설정 편집
+vi cluster_config.yml
+
+# 3. 전체 셋업 실행
+docker run -it -v ${PWD}:/workspace --network host rccr setup
+
+# 4. 네트워크 스캔만 실행
+docker run -it -v ${PWD}:/workspace --network host rccr scan
+
+# 5. SSH 키 교체만 실행
+docker run -it -v ${PWD}:/workspace --network host rccr rotate-keys
+
+# 6. 대화형 셸
+docker run -it -v ${PWD}:/workspace --network host rccr bash
+```
+
+---
+
+## 📖 주요 개념
+
+### Control 노드 vs Target 노드
+
+| 구분 | Control | Target |
+|------|---------|--------|
+| **역할** | 클러스터 관리 | 워커 |
+| **호스트명** | `ReCyClusteR-Control` | `ReCyClusteR-Target` |
+| **사전 설치** | Ansible, nmap, Python3 | Docker, Python3 |
+| **SSH 키** | 개인키 포함 | 공개키만 포함 |
+| **용도** | 셋업 실행, 관리 | 컨테이너 실행 |
+
+### 호스트명 필터링
+
+네트워크 스캔 시 `ReCyClusteR` 패턴을 가진 호스트만 감지:
+- Control 노드: `ReCyClusteR-Control`
+- Target 노드: `ReCyClusteR-Target`
+
+이렇게 하면 네트워크상의 다른 머신들은 무시됩니다.
+
+### SSH 키 자동 교체
+
+1. **초기 상태**: 이미지에 임시 SSH 키 포함
+2. **첫 연결**: 임시 키로 Target 노드 접속
+3. **자동 교체**: `ansible-playbook setup.playbook` 실행 시
+   - 새 SSH 키쌍 생성 (4096-bit RSA)
+   - 모든 노드에 배포
+   - 임시 키 제거
+4. **완료**: 새 키로만 접속 가능
+
+---
+
+## 📁 프로젝트 구조
 
 ```
 recycluster/
-├── bin/
-│   └── rccr                      # CLI 실행 파일
-├── lib/
-│   ├── network_scanner.py        # 네트워크 스캔 모듈
-│   ├── node_mapper.py            # 노드 매핑 모듈
-│   └── rccr_setup.py             # 메인 셋업 로직
-├── cluster_config.yml            # 클러스터 설정 파일 (템플릿)
-├── deploy_cluster.playbook       # Ansible 배포 플레이북
-├── machine_layer/                # 머신 레이어 플레이북
-├── container_layer/              # 컨테이너 레이어 플레이북
-├── orchestration_layer/          # 오케스트레이션 레이어 플레이북
-├── APKBUILD                      # Alpine APK 빌드 파일
-└── build-apk.sh                  # APK 빌드 스크립트
+├── image-profiles/              # alpine-make-iso 프로파일
+│   ├── control/                 # Control 노드 이미지 설정
+│   │   ├── profile.conf
+│   │   ├── answerfile
+│   │   └── genapkovl-*.sh      # Overlay 생성 스크립트
+│   └── target/                  # Target 노드 이미지 설정
+│       ├── profile.conf
+│       ├── answerfile
+│       └── genapkovl-*.sh
+│
+├── playbooks/                   # Ansible 플레이북
+│   ├── 01_scan_network.playbook
+│   └── 02_rotate_ssh_keys.playbook
+│
+├── machine_layer/               # 머신 레이어 플레이북
+├── container_layer/             # 컨테이너 레이어 플레이북
+├── orchestration_layer/         # 오케스트레이션 레이어 플레이북
+│
+├── scripts/                     # 빌드 스크립트
+│   ├── build-single-image.sh
+│   └── build-all-images.sh
+│
+├── templates/                   # Ansible 템플릿
+│   └── inventory.yml.j2
+│
+├── cluster_config.yml           # 클러스터 설정 (단일 소스)
+├── setup.playbook               # 마스터 플레이북
+└── Dockerfile                   # Docker 이미지
 ```
 
-## 설치 경로 (APK 설치 시)
+---
 
-```
-/usr/bin/rccr                     # 실행 파일
-/usr/share/rccr/                  # 프로그램 파일
-  ├── lib/                        # Python 모듈
-  ├── *.playbook                  # Ansible playbook
-  └── cluster_config.yml          # 설정 파일 템플릿
-/usr/share/doc/rccr/              # 문서
-/usr/share/licenses/rccr/         # 라이선스
-```
+## 🔧 고급 사용법
 
-## 생성되는 파일
-
-셋업 과정에서 `cluster_config.yml` 파일이 업데이트됩니다:
-- 각 머신의 `detected_ip` 필드에 감지된 IP 주소가 기록됨
-- Ansible playbook이 이 파일을 직접 읽어서 배포 수행
-
-## CLI 명령어
+### 특정 Phase만 실행
 
 ```bash
-# 프로젝트 초기화 (템플릿 생성)
-rccr init
+# Phase 1: 네트워크 스캔만
+ansible-playbook playbooks/01_scan_network.playbook
 
-# 클러스터 셋업
-sudo rccr setup
+# Phase 2: SSH 키 교체만
+ansible-playbook playbooks/02_rotate_ssh_keys.playbook
 
-# 버전 확인
-rccr version
-
-# 도움말
-rccr help
+# Phase 3: 머신 레이어만
+ansible-playbook machine_layer/main.playbook
 ```
 
-## 고급 사용법
-
-### 설정 파일 확인
+### 수동 Ansible 실행
 
 ```bash
-cat cluster_config.yml
+# 모든 노드에 명령 실행
+ansible all -m shell -a "uptime"
+
+# 특정 그룹만
+ansible workers -m shell -a "docker ps"
+
+# 팩트 수집
+ansible all -m setup
 ```
 
-셋업 완료 후 각 머신의 `detected_ip` 필드에 감지된 IP가 기록됩니다.
+### 커스텀 플레이북
 
-### 수동으로 Ansible playbook 실행
+```yaml
+# custom.playbook
+---
+- name: Custom Configuration
+  hosts: all
+  vars_files:
+    - cluster_config.yml
+
+  tasks:
+    - name: Install custom package
+      ansible.builtin.apk:
+        name: htop
+        state: present
+```
 
 ```bash
-ansible-playbook -e @cluster_config.yml /usr/share/rccr/deploy_cluster.playbook
+ansible-playbook custom.playbook
 ```
 
-### 태그를 사용한 부분 실행
+---
+
+## 🏗️ 이미지 빌드 (개발자용)
+
+### 로컬 빌드
 
 ```bash
-# Docker 설치만 실행
-ansible-playbook -e @cluster_config.yml /usr/share/rccr/deploy_cluster.playbook --tags docker
+# 단일 이미지 빌드
+bash scripts/build-single-image.sh x86_64 control 0.0.2
 
-# 컨테이너 배포만 실행
-ansible-playbook -e @cluster_config.yml /usr/share/rccr/deploy_cluster.playbook --tags containers
-
-# 네트워크 설정만 실행
-ansible-playbook -e @cluster_config.yml /usr/share/rccr/deploy_cluster.playbook --tags network
+# 모든 이미지 빌드 (24개)
+bash scripts/build-all-images.sh 0.0.2
 ```
 
-## 문제 해결
+**요구사항:**
+- Docker (QEMU 지원)
+- 인터넷 연결
+- 충분한 디스크 공간 (~2GB per image)
 
-### nmap이 설치되지 않음
+### CI/CD
+
+GitHub Actions가 자동으로 이미지를 빌드합니다:
+
+1. 태그 푸시: `git tag v0.0.2 && git push --tags`
+2. GitHub Actions 실행
+3. 12개 OS 이미지 생성 (6 아키텍처 × 2 타입)
+4. GitHub Release 자동 생성
+
+---
+
+## ❓ 문제 해결
+
+### 1. 네트워크 스캔이 작동하지 않음
+
+**증상:** `nmap` 스캔에서 호스트를 찾지 못함
+
+**해결:**
 ```bash
-# Ubuntu/Debian
-sudo apt-get install nmap
+# 방화벽 확인
+iptables -L
 
-# CentOS/RHEL
-sudo yum install nmap
+# 서브넷 확인
+ip addr show
 
-# Alpine
-apk add nmap
+# 수동 스캔 테스트
+nmap -sn 192.168.1.0/24
 ```
 
-### Python 패키지 오류
+### 2. SSH 연결 실패
+
+**증상:** Ansible이 Target 노드에 연결하지 못함
+
+**해결:**
 ```bash
-pip3 install --upgrade pyyaml ansible
+# SSH 서비스 확인 (Target 노드)
+rc-service sshd status
+rc-service sshd start
+
+# 수동 연결 테스트 (Control 노드)
+ssh -i /root/.ssh/id_rsa root@<target-ip>
+
+# 키 권한 확인
+chmod 600 /root/.ssh/id_rsa
+chmod 644 /root/.ssh/id_rsa.pub
 ```
 
-### 네트워크 스캔이 작동하지 않음
-- 방화벽 설정 확인
-- 올바른 서브넷이 설정되어 있는지 확인
-- Root 권한으로 실행되고 있는지 확인
+### 3. 호스트명이 감지되지 않음
 
-## 라이선스
+**증상:** 네트워크 스캔에서 `ReCyClusteR` 호스트가 안 보임
 
-MIT License
+**해결:**
+```bash
+# 호스트명 확인 (Target 노드)
+hostname
+cat /etc/hostname
 
-## 기여
+# 호스트명 수동 설정
+echo "ReCyClusteR-Target" > /etc/hostname
+hostname -F /etc/hostname
+
+# Avahi 재시작 (mDNS)
+rc-service avahi-daemon restart
+```
+
+### 4. Docker 컨테이너가 시작되지 않음
+
+**증상:** Ansible이 컨테이너를 배포했지만 실행 안 됨
+
+**해결:**
+```bash
+# Docker 서비스 확인
+rc-service docker status
+rc-service docker start
+
+# 로그 확인
+docker logs <container-name>
+
+# 수동 실행 테스트
+docker run -d --name test nginx:alpine
+```
+
+---
+
+## 📚 추가 문서
+
+- **[IMAGE_BUILD_STRATEGY.md](IMAGE_BUILD_STRATEGY.md)** - alpine-make-iso 빌드 전략
+- **[MIGRATION_PLAN.md](MIGRATION_PLAN.md)** - APK → OS 이미지 마이그레이션 계획
+- **[DISTRIBUTION.md](DISTRIBUTION.md)** - 배포 전략 및 방법
+
+---
+
+## 🤝 기여
 
 이슈와 풀 리퀘스트를 환영합니다!
 
-## 작성자
+**개발 환경:**
+```bash
+git clone https://github.com/nananina0415/recycluster.git
+cd recycluster
 
-nananina0415
+# 문법 체크
+bash -n scripts/*.sh
+python3 -c "import yaml; yaml.safe_load(open('cluster_config.yml'))"
+
+# 로컬 빌드 테스트
+bash scripts/build-single-image.sh x86_64 control 0.0.2
+```
+
+---
+
+## 📄 라이선스
+
+MIT License - 자유롭게 사용, 수정, 배포 가능
+
+---
+
+## 👤 작성자
+
+**nananina0415**
+
+- GitHub: [@nananina0415](https://github.com/nananina0415)
+- Repository: [recycluster](https://github.com/nananina0415/recycluster)
+
+---
+
+## 🌟 Star History
+
+프로젝트가 유용하다면 ⭐ Star를 눌러주세요!
+
+---
+
+**버전**: 0.0.2
+**마지막 업데이트**: 2025-12-30
+**Alpine Linux**: 3.19
+**Ansible**: 최신
