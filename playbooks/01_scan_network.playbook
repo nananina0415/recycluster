@@ -11,7 +11,6 @@
     - ../cluster_config.yml
 
   vars:
-    hostname_filter: "{{ network_config.hostname_filter | default('ReCyClusteR') }}"
     detected_machines: []
 
   tasks:
@@ -23,40 +22,36 @@
           ╚═══════════════════════════════════════════════════════════════════╝
 
           Subnet: {{ network_config.subnet }}
-          Hostname Filter: {{ hostname_filter }}*
           Machines to detect: {{ machines | length }}
 
-    - name: Check if avahi-browse is installed
+    - name: Check if nmap is installed
       ansible.builtin.command:
-        cmd: which avahi-browse
-      register: avahi_check
+        cmd: which nmap
+      register: nmap_check
       failed_when: false
       changed_when: false
 
-    - name: Fail if avahi-browse is not installed
+    - name: Fail if nmap is not installed
       ansible.builtin.fail:
-        msg: "avahi-browse is not installed. Please install it: apk add avahi-tools"
-      when: avahi_check.rc != 0
+        msg: "nmap is not installed. Please install it: apk add nmap"
+      when: nmap_check.rc != 0
 
-    - name: Take initial network snapshot (mDNS)
+    - name: Take initial network snapshot
       ansible.builtin.command:
-        cmd: timeout 5 avahi-browse -art
+        cmd: nmap -sn -oG - {{ network_config.subnet }}
       register: initial_scan
       changed_when: false
-      failed_when: false
 
-    - name: Parse initial hosts from mDNS scan
+    - name: Parse initial hosts from scan
       ansible.builtin.set_fact:
         initial_hosts: "{{ initial_scan.stdout_lines |
-          select('search', 'address \\[([0-9.]+)\\]') |
-          map('regex_search', 'address \\[([0-9.]+)\\]', '\\1') |
-          select('string') |
-          map('first') |
-          list | unique }}"
+          select('match', '^Host: [0-9]') |
+          map('regex_replace', '^Host: ([0-9.]+) .*$', '\\1') |
+          list }}"
 
     - name: Display initial network state
       ansible.builtin.debug:
-        msg: "Initial mDNS scan found {{ initial_hosts | length }} hosts with Avahi"
+        msg: "Initial scan found {{ initial_hosts | length }} active hosts on network"
 
     - name: Display machine detection instructions
       ansible.builtin.debug:
@@ -65,8 +60,8 @@
           Interactive Node Detection
           ═══════════════════════════════════════════════════════════════════
 
-          You will be prompted to connect each machine one by one.
-          The system will automatically detect machines with hostname: {{ hostname_filter }}*
+          You will be prompted to power on each machine one by one.
+          The system will detect NEW hosts that appear on the network.
 
           Machines to connect:
           {% for machine in machines %}

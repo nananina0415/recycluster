@@ -18,61 +18,54 @@
 
   register: user_confirmation
 
-- name: Scan network with avahi-browse (mDNS discovery)
+- name: Scan network for active hosts (ping scan)
   ansible.builtin.command:
-    cmd: timeout 5 avahi-browse -art
-  register: avahi_scan
+    cmd: nmap -sn -oG - {{ network_config.subnet }}
+  register: new_scan
   changed_when: false
-  failed_when: false
 
-- name: Parse avahi results for ReCyClusteR-Node
+- name: Parse active hosts from scan
   ansible.builtin.set_fact:
-    avahi_hosts: "{{ avahi_scan.stdout_lines |
-      select('search', hostname_filter + '.*IPv4') |
-      map('regex_search', 'address \\[([0-9.]+)\\]', '\\1') |
-      select('string') |
-      map('first') |
+    current_hosts: "{{ new_scan.stdout_lines |
+      select('match', '^Host: [0-9]') |
+      map('regex_replace', '^Host: ([0-9.]+) .*$', '\\1') |
       list }}"
 
-- name: Filter out already detected hosts
+- name: Find newly appeared hosts
   ansible.builtin.set_fact:
-    new_avahi_hosts: "{{ avahi_hosts | difference(initial_hosts) }}"
+    new_hosts: "{{ current_hosts | difference(initial_hosts) }}"
+
+- name: Debug - Show scan results
+  ansible.builtin.debug:
+    msg: |
+      ═══════════════════════════════════════════════════════════════════
+      Network Scan Results:
+      ═══════════════════════════════════════════════════════════════════
+      Total active hosts: {{ current_hosts | length }}
+      Initial hosts: {{ initial_hosts | length }}
+      New hosts detected: {{ new_hosts }}
+  when: true  # Set to false to disable debugging
 
 - name: Extract new host IP
   ansible.builtin.set_fact:
-    new_host_ip: "{{ new_avahi_hosts[0] if new_avahi_hosts | length > 0 else '' }}"
-    new_host_name: "{{ hostname_filter }}-Node"
+    new_host_ip: "{{ new_hosts[0] if new_hosts | length > 0 else '' }}"
 
 - name: Display detected host
   ansible.builtin.debug:
     msg: |
-      ✓ Host detected!
+      ✓ New host detected!
       IP: {{ new_host_ip }}
-      Hostname: {{ new_host_name }}
-      Mapping to: {{ machine.name }}
+      Mapping to: {{ machine.name }} ({{ machine.role }})
   when: new_host_ip != ''
 
-- name: Debug - Show avahi scan results
+- name: Warn if no new host detected
   ansible.builtin.debug:
     msg: |
-      ═══════════════════════════════════════════════════════════════════
-      Avahi mDNS Scan Results:
-      ═══════════════════════════════════════════════════════════════════
-      All hosts found: {{ avahi_hosts }}
-      Initial hosts: {{ initial_hosts }}
-      New hosts: {{ new_avahi_hosts }}
-      Selected IP: {{ new_host_ip }}
-  when: true  # Set to false to disable debugging
-
-- name: Warn if no host detected
-  ansible.builtin.debug:
-    msg: |
-      ⚠ No new host with hostname '{{ hostname_filter }}' detected via mDNS.
+      ⚠ No new host appeared on the network.
       Please check:
       - Machine is powered on and booted
       - Network cable is connected
       - Machine is on the same network ({{ network_config.subnet }})
-      - Avahi daemon is running on the target machine
   when: new_host_ip == ''
 
 - name: Update machine with detected IP
