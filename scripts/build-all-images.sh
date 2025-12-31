@@ -10,10 +10,10 @@ set -e
 #   ./build-all-images.sh [version]
 #
 # Example:
-#   ./build-all-images.sh 0.0.2
+#   ./build-all-images.sh 0.0.4
 # ═══════════════════════════════════════════════════════════════════
 
-VERSION=${1:-0.0.2}
+VERSION=${1:-0.0.4}
 
 # Architectures
 ARCHS=("x86" "x86_64" "aarch64" "rpi-aarch64" "armv7" "armhf")

@@ -42,10 +42,10 @@ RCCR은 즉시 사용 가능한 **부팅 이미지**를 제공합니다:
 
 ```bash
 # 버전 태그 생성
-git tag v0.0.2
+git tag v0.0.4
 
 # 태그 푸시
-git push origin v0.0.2
+git push origin v0.0.4
 ```
 
 #### 2. GitHub Actions 자동 실행

@@ -10,13 +10,13 @@ set -e
 #   ./build-single-image.sh <arch> <type> [version]
 #
 # Examples:
-#   ./build-single-image.sh x86_64 control 0.0.2
+#   ./build-single-image.sh x86_64 control 0.0.4
 #   ./build-single-image.sh aarch64 target
 # ═══════════════════════════════════════════════════════════════════
 
 ARCH=$1
 TYPE=$2
-VERSION=${3:-0.0.2}
+VERSION=${3:-0.0.4}
 
 # Colors
 RED='\033[0;31m'
@@ -38,10 +38,10 @@ if [ -z "$ARCH" ] || [ -z "$TYPE" ]; then
     echo "Arguments:"
     echo "  arch    : x86, x86_64, aarch64, rpi-aarch64, armv7, armhf"
     echo "  type    : control, target"
-    echo "  version : (optional) default: 0.0.2"
+    echo "  version : (optional) default: 0.0.4"
     echo ""
     echo "Examples:"
-    echo "  $0 x86_64 control 0.0.2"
+    echo "  $0 x86_64 control 0.0.4"
     echo "  $0 aarch64 target"
     exit 1
 fi

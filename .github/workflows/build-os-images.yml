@@ -206,6 +206,10 @@ jobs:
 
           - `x86_64`: 64-bit x86 (현대 PC, 서버)
           - `aarch64`: 64-bit ARM (Raspberry Pi 3/4/5, ARM64 서버)
+          - `rpi-aarch64`: Raspberry Pi 전용 ARM64
+          - `armv7`: 32-bit ARMv7 (Raspberry Pi 2/3)
+          - `armhf`: 32-bit ARM (Raspberry Pi 1/Zero)
+          - `x86`: 32-bit x86 (구형 PC)
 
           ### 🚀 사용 방법
 
