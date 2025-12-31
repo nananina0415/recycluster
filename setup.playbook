@@ -82,18 +82,16 @@
 # ═══════════════════════════════════════════════════════════════════
 # Phase 4: Orchestration Layer (Optional)
 # ═══════════════════════════════════════════════════════════════════
+# Note: Conditional logic is handled inside the playbook
 
-- name: "Phase 4: Orchestration Layer"
-  ansible.builtin.import_playbook: orchestration_layer/main.playbook
-  when: orchestration_layer_enabled | default(false)
+- ansible.builtin.import_playbook: orchestration_layer/main.playbook
 
 # ═══════════════════════════════════════════════════════════════════
 # Phase 5: Container Layer (Optional)
 # ═══════════════════════════════════════════════════════════════════
+# Note: Conditional logic is handled inside the playbook
 
-- name: "Phase 5: Container Layer"
-  ansible.builtin.import_playbook: container_layer/main.playbook
-  when: container_layer_enabled | default(false)
+- ansible.builtin.import_playbook: container_layer/main.playbook
 
 # ═══════════════════════════════════════════════════════════════════
 # Completion
