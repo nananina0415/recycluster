@@ -121,7 +121,56 @@ New password:
 
 Control 노드에 Windows에서 SSH로 접속할 수 있습니다.
 
-### PowerShell/Windows Terminal 사용
+### 자동 접속 스크립트 (권장)
+
+**가장 쉬운 방법**: Control 노드를 자동으로 찾아서 접속하는 스크립트
+
+**1. 스크립트 다운로드:**
+```powershell
+# Git 저장소를 클론했다면
+cd recycluster
+
+# 또는 직접 다운로드
+# https://github.com/nananina0415/recycluster/blob/main/windows-connect.ps1
+# https://github.com/nananina0415/recycluster/blob/main/windows-connect.bat
+```
+
+**2. 실행:**
+```powershell
+# Option A: PowerShell 스크립트
+.\windows-connect.ps1
+
+# Option B: 더블클릭
+# windows-connect.bat 파일을 더블클릭
+
+# 다른 네트워크 대역 사용 시
+.\windows-connect.ps1 -Subnet "192.168.0"
+```
+
+**동작:**
+```
+[1/3] Scanning network 192.168.1.0/24 for active hosts...
+      ✓ Found: 192.168.1.100
+
+[2/3] Checking hostnames via SSH...
+      Trying 192.168.1.100... hostname: ReCyClusteR-Node
+      ✓ Match found!
+
+[3/3] Connecting to Control node...
+
+╔═══════════════════════════════════════════════════════════════════╗
+║  Control Node Found!                                             ║
+║  IP Address: 192.168.1.100                                       ║
+╚═══════════════════════════════════════════════════════════════════╝
+
+Connecting...
+```
+
+---
+
+### 수동 접속 (IP 주소를 알 때)
+
+#### PowerShell/Windows Terminal 사용
 
 ```powershell
 # SSH 접속 (Control 노드의 IP 주소 확인 후)
@@ -130,7 +179,7 @@ ssh root@192.168.1.100
 # 비밀번호 입력
 ```
 
-### PuTTY 사용
+#### PuTTY 사용
 
 1. [PuTTY](https://www.putty.org/) 다운로드 및 설치
 2. Host Name: `192.168.1.100` (Control 노드 IP)
@@ -139,15 +188,6 @@ ssh root@192.168.1.100
 5. Open 클릭
 6. 사용자명: `root`
 7. 비밀번호 입력
-
-### Windows Terminal (권장)
-
-Windows 10/11에 기본 포함된 Windows Terminal 사용:
-
-```powershell
-# Windows Terminal에서 실행
-ssh root@<control-node-ip>
-```
 
 **Tip**: Control 노드에 로그인하면 화면에 현재 IP 주소가 표시됩니다.
 

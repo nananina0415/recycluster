@@ -18,16 +18,34 @@
 
   register: user_confirmation
 
-- name: Scan network for active hosts (ping scan)
+- name: Scan network for active hosts (smart ping)
   ansible.builtin.shell: |
     network="{{ network_config.subnet | regex_replace('/.*$', '') }}"
     prefix=$(echo $network | cut -d. -f1-3)
-    i=1
-    while [ $i -le 254 ]; do
-      (ping -c 1 -W 1 $prefix.$i >/dev/null 2>&1 && echo "$prefix.$i") &
-      i=$((i + 1))
-    done
-    wait
+
+    # Clear ARP cache for fresh detection
+    ip neigh flush all 2>/dev/null || true
+
+    # Try broadcast ping first (fast method)
+    ping -b -c 3 -W 1 $prefix.255 >/dev/null 2>&1 || true
+    sleep 0.5
+
+    # Check if broadcast ping worked
+    found=$(ip neigh show | awk '$NF == "REACHABLE" || $NF == "DELAY" {print $1}' | grep "^$prefix\." | wc -l)
+
+    # If broadcast found nothing, fall back to parallel ping
+    if [ "$found" -eq 0 ]; then
+      echo "Broadcast ping failed, using parallel ping scan..." >&2
+      i=1
+      while [ $i -le 254 ]; do
+        (ping -c 1 -W 1 $prefix.$i >/dev/null 2>&1) &
+        i=$((i + 1))
+      done
+      wait
+    fi
+
+    # Collect fresh reachable hosts from ARP
+    ip neigh show | awk '$NF == "REACHABLE" || $NF == "DELAY" {print $1}' | grep "^$prefix\." | sort -u
   register: new_scan
   changed_when: false
 
