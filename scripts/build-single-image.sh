@@ -194,15 +194,16 @@ docker run --rm --privileged \
         echo 'Setting up profile...'
         echo '═══════════════════════════════════════════════════════════════════'
 
+        # Copy mkimg profile script (mkimage.sh auto-discovers mkimg.*.sh files)
+        cp /profile/mkimg.rccr-${TYPE}.sh ./
+        chmod +x mkimg.rccr-${TYPE}.sh
+
         # Copy overlay generator script
         cp /profile/genapkovl-*.sh ./
         chmod +x genapkovl-*.sh
 
-        # Copy and source profile
-        cp /profile/profile.conf /tmp/profile_rccr_${TYPE}.sh
-        source /tmp/profile_rccr_${TYPE}.sh
-
-        echo \"Profile loaded: rccr_${TYPE}\"
+        echo \"✓ Profile script: mkimg.rccr-${TYPE}.sh\"
+        echo \"✓ Overlay script: genapkovl-rccr-${TYPE}.sh\"
 
         echo ''
         echo '═══════════════════════════════════════════════════════════════════'
@@ -210,7 +211,9 @@ docker run --rm --privileged \
         echo '═══════════════════════════════════════════════════════════════════'
 
         # Run mkimage.sh with our profile
-        sh mkimage.sh --tag ${ALPINE_VERSION} \
+        # mkimage.sh will auto-discover mkimg.rccr-*.sh and call profile_rccr_*()
+        sh mkimage.sh \
+            --tag ${ALPINE_VERSION} \
             --outdir /output \
             --arch ${ARCH//-/_} \
             --repository http://dl-cdn.alpinelinux.org/alpine/v${ALPINE_VERSION}/main \
