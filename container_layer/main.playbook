@@ -1,0 +1,23 @@
+---
+# Container Layer - Application Container Deployment
+# Currently disabled - to be implemented
+
+- name: Container Layer Deployment
+  hosts: localhost
+  gather_facts: no
+
+  tasks:
+    - name: Check if container layer is enabled
+      ansible.builtin.debug:
+        msg: "Container layer is disabled (container_layer_enabled: {{ container_layer_enabled | default(false) }})"
+      when: not (container_layer_enabled | default(false))
+
+    - name: Skip container layer deployment
+      ansible.builtin.meta: end_play
+      when: not (container_layer_enabled | default(false))
+
+    # Future implementation:
+    # - Deploy storage containers
+    # - Deploy task queue containers
+    # - Deploy application containers
+    # - Configure networking
