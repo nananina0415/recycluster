@@ -65,7 +65,7 @@ HostKey /etc/ssh/ssh_host_ed25519_key
 # Authentication
 PermitRootLogin yes
 PubkeyAuthentication yes
-PasswordAuthentication no
+PasswordAuthentication yes
 PermitEmptyPasswords no
 ChallengeResponseAuthentication no
 
@@ -185,6 +185,49 @@ sleep 2
 rc-service sshd start 2>/dev/null || true
 rc-service docker start 2>/dev/null || true
 
+# First boot setup
+SETUP_FLAG="/root/.rccr-setup-done"
+
+if [ ! -f "$SETUP_FLAG" ]; then
+    # First boot - setup root password for remote access
+    clear
+    cat <<'SETUP'
+╔═══════════════════════════════════════════════════════════════════╗
+║                                                                   ║
+║               RCCR (ReCyClusteR) - First Boot Setup              ║
+║                                                                   ║
+╚═══════════════════════════════════════════════════════════════════╝
+
+Welcome to RCCR Control Node!
+
+For remote access from Windows/other computers, please set a root password.
+Node-to-node communication will use SSH keys automatically.
+
+SETUP
+
+    echo ""
+    echo "Please set root password for remote SSH access:"
+    passwd root
+
+    if [ $? -eq 0 ]; then
+        touch "$SETUP_FLAG"
+        echo ""
+        echo "✓ Password set successfully!"
+        echo ""
+        echo "Connection Information:"
+        IP_ADDR=$(ip -4 addr show | grep 'inet ' | awk '{print $2}' | cut -d/ -f1 | grep -v 127.0.0.1 | head -1)
+        echo "  IP Address: $IP_ADDR"
+        echo "  SSH Access: ssh root@$IP_ADDR"
+        echo ""
+        echo "Press Enter to continue..."
+        read dummy
+    else
+        echo ""
+        echo "⚠️  Password setup failed. You can set it later with: passwd root"
+        echo ""
+    fi
+fi
+
 # Display MOTD
 cat <<'MOTD'
 
@@ -216,6 +259,15 @@ Documentation: /root/rccr/README.md
     Run 'ansible-playbook setup.playbook' to rotate keys automatically.
 
 MOTD
+
+# Show current IP address
+IP_ADDR=$(ip -4 addr show | grep 'inet ' | awk '{print $2}' | cut -d/ -f1 | grep -v 127.0.0.1 | head -1)
+if [ -n "$IP_ADDR" ]; then
+    echo "Network Status:"
+    echo "  IP Address: $IP_ADDR"
+    echo "  Remote Access: ssh root@$IP_ADDR"
+    echo ""
+fi
 
 INITEOF
 chmod +x "$tmp"/etc/local.d/rccr-init.start

@@ -9,10 +9,10 @@
 - 🚀 **즉시 부팅 가능**: ISO/IMG 파일을 플래시하여 바로 사용
 - 🔍 **자동 호스트 감지**: `ReCyClusteR` 호스트명 기반 자동 필터링
 - 🤖 **Ansible 100%**: Python 스크립트 없이 순수 Ansible 플레이북
-- 🔐 **보안 자동화**: SSH 임시 키 자동 교체
-- 📦 **사전 구성**: Ansible, nmap, Docker 설치 완료
+- 🔐 **이중 보안**: 원격 접속(비밀번호) + 노드 간 통신(SSH 키)
+- 📦 **최소 의존성**: 외부 라이브러리 없이 Alpine 기본 도구만 사용
 - 🎯 **단일 설정 파일**: `cluster_config.yml` 하나로 모든 설정 관리
-- 🏗️ **Control/Target 구조**: 명확한 노드 역할 구분
+- 💻 **Windows 친화적**: PowerShell/PuTTY로 간편한 원격 접속
 
 ## 🎯 사용 사례
 
@@ -33,10 +33,10 @@
 
 **[GitHub Releases](https://github.com/nananina0415/recycluster/releases)** 에서 다운로드:
 
-| 노드 타입 | 설명 | 용도 |
+| 노드 타입 | 설명 | 사전 설치 패키지 |
 |----------|------|------|
-| **Control** | 클러스터 관리 노드 | Ansible, nmap 사전 설치 |
-| **Target** | 워커 노드 | Docker 사전 설치 |
+| **Control** | 클러스터 관리 노드 | Ansible, Docker, SSH |
+| **Target** | 워커 노드 | Docker, SSH |
 
 | 아키텍처 | 설명 | 예시 |
 |---------|------|------|
@@ -88,26 +88,68 @@ sync
 3. 자동으로 Alpine Linux 부팅
 
 **기본 설정:**
-- **Control 노드**: 호스트명 `ReCyClusteR-Control`
-- **Target 노드**: 호스트명 `ReCyClusteR-Target`
-- **사용자**: `root` (SSH 키 인증)
-- **임시 SSH 키**: 이미지에 포함 (자동 교체됨)
+- **호스트명**: `ReCyClusteR-Node` (모든 노드 공통)
+- **사용자**: `root`
+- **노드 간 통신**: SSH 키 (자동 생성 및 교체)
+- **원격 접속**: 비밀번호 (첫 부팅 시 설정)
+
+#### 1.5. 첫 부팅 시 비밀번호 설정
+
+Control 노드를 처음 부팅하면 원격 접속용 비밀번호를 설정하라는 메시지가 표시됩니다:
+
+```
+╔═══════════════════════════════════════════════════════════════════╗
+║                                                                   ║
+║               RCCR (ReCyClusteR) - First Boot Setup              ║
+║                                                                   ║
+╚═══════════════════════════════════════════════════════════════════╝
+
+Welcome to RCCR Control Node!
+
+For remote access from Windows/other computers, please set a root password.
+Node-to-node communication will use SSH keys automatically.
+
+Please set root password for remote SSH access:
+New password:
+```
+
+비밀번호를 설정하면 IP 주소와 SSH 접속 정보가 표시됩니다.
 
 ---
 
-### 방법 2: Docker (개발/테스트용)
+## 💻 Windows에서 원격 접속
 
-Docker를 사용하면 Windows/Mac/Linux에서 RCCR을 실행할 수 있습니다.
+Control 노드에 Windows에서 SSH로 접속할 수 있습니다.
 
-```bash
-# 이미지 다운로드
-docker pull ghcr.io/nananina0415/recycluster:latest
+### PowerShell/Windows Terminal 사용
 
-# 또는 로컬 빌드
-git clone https://github.com/nananina0415/recycluster.git
-cd recycluster
-docker build -t rccr .
+```powershell
+# SSH 접속 (Control 노드의 IP 주소 확인 후)
+ssh root@192.168.1.100
+
+# 비밀번호 입력
 ```
+
+### PuTTY 사용
+
+1. [PuTTY](https://www.putty.org/) 다운로드 및 설치
+2. Host Name: `192.168.1.100` (Control 노드 IP)
+3. Port: `22`
+4. Connection type: `SSH`
+5. Open 클릭
+6. 사용자명: `root`
+7. 비밀번호 입력
+
+### Windows Terminal (권장)
+
+Windows 10/11에 기본 포함된 Windows Terminal 사용:
+
+```powershell
+# Windows Terminal에서 실행
+ssh root@<control-node-ip>
+```
+
+**Tip**: Control 노드에 로그인하면 화면에 현재 IP 주소가 표시됩니다.
 
 ---
 
@@ -115,16 +157,18 @@ docker build -t rccr .
 
 ### Control 노드에서 실행
 
-#### 1. Control 노드 부팅
+#### 1. Control 노드 접속
 
-Control 노드 이미지로 부팅한 머신에 로그인:
+Control 노드 이미지로 부팅한 후 접속:
 
 ```bash
-# SSH로 접속 (임시 키로 인증)
+# Windows/Linux/Mac에서 SSH로 접속
 ssh root@<control-node-ip>
 
 # 또는 직접 콘솔 로그인
 ```
+
+첫 부팅 시 설정한 비밀번호를 입력합니다.
 
 #### 2. 설정 파일 편집
 
