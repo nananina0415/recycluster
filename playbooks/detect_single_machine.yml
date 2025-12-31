@@ -18,18 +18,18 @@
 
   register: user_confirmation
 
-- name: Scan network for active hosts (ARP + ping scan)
+- name: Scan network for active hosts (broadcast + parallel ping)
   ansible.builtin.shell: |
     network="{{ network_config.subnet | regex_replace('/.*$', '') }}"
     prefix=$(echo $network | cut -d. -f1-3)
 
-    # Method 1: Check ARP cache first (instant)
-    ip neigh show | awk '{print $1}' | grep "^$prefix\." || true
+    # Clear ARP cache for fresh detection
+    ip neigh flush all 2>/dev/null || true
 
-    # Method 2: Broadcast ping (fast)
-    ping -b -c 2 -W 1 $prefix.255 >/dev/null 2>&1 || true
+    # Method 1: Broadcast ping (fast, triggers network discovery)
+    ping -b -c 3 -W 1 $prefix.255 >/dev/null 2>&1 || true
 
-    # Method 3: Parallel ping scan
+    # Method 2: Parallel ping scan (full coverage)
     i=1
     while [ $i -le 254 ]; do
       (ping -c 1 -W 1 $prefix.$i >/dev/null 2>&1) &
@@ -37,8 +37,8 @@
     done
     wait
 
-    # Collect all results from ARP cache
-    ip neigh show | awk '$NF != "FAILED" {print $1}' | grep "^$prefix\." | sort -u
+    # Collect ONLY fresh reachable hosts from ARP
+    ip neigh show | awk '$NF == "REACHABLE" || $NF == "DELAY" {print $1}' | grep "^$prefix\." | sort -u
   register: new_scan
   changed_when: false
 
