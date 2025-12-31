@@ -18,64 +18,30 @@
 
   register: user_confirmation
 
-- name: Scan network for new hosts (with DNS resolution)
+- name: Scan network with avahi-browse (mDNS discovery)
   ansible.builtin.command:
-    cmd: nmap -sn -R -oG - {{ network_config.subnet }}
-  register: new_scan
+    cmd: timeout 5 avahi-browse -art
+  register: avahi_scan
   changed_when: false
+  failed_when: false
 
-- name: Debug - Show full nmap output
-  ansible.builtin.debug:
-    msg: |
-      ═══════════════════════════════════════════════════════════════════
-      NMAP RAW OUTPUT (all lines):
-      ═══════════════════════════════════════════════════════════════════
-      {% for line in new_scan.stdout_lines %}
-      {{ loop.index }}: {{ line }}
-      {% endfor %}
-  when: true  # Set to false to disable debugging
-
-- name: Debug - Show lines matching "Host:"
-  ansible.builtin.debug:
-    msg: |
-      ═══════════════════════════════════════════════════════════════════
-      Lines starting with "Host:":
-      ═══════════════════════════════════════════════════════════════════
-      {% for line in new_scan.stdout_lines %}
-      {% if line.startswith('Host:') %}
-      {{ line }}
-      {% endif %}
-      {% endfor %}
-  when: true  # Set to false to disable debugging
-
-- name: Debug - Show hostname filter
-  ansible.builtin.debug:
-    msg: "Looking for hostname containing: '{{ hostname_filter }}'"
-  when: true  # Set to false to disable debugging
-
-- name: Parse new scan results
+- name: Parse avahi results for ReCyClusteR-Node
   ansible.builtin.set_fact:
-    current_hosts: "{{ new_scan.stdout_lines |
-      select('match', '^Host:.*\\(' + hostname_filter + '.*\\)') |
-      map('regex_replace', '^Host: ([0-9.]+) \\(([^)]+)\\).*$', '\\1,\\2') |
+    avahi_hosts: "{{ avahi_scan.stdout_lines |
+      select('search', hostname_filter + '.*IPv4') |
+      map('regex_search', 'address \\[([0-9.]+)\\]', '\\1') |
+      select('string') |
+      map('first') |
       list }}"
 
-- name: Debug - Show parsed results
-  ansible.builtin.debug:
-    msg: |
-      ═══════════════════════════════════════════════════════════════════
-      PARSED RESULTS:
-      ═══════════════════════════════════════════════════════════════════
-      Found {{ current_hosts | length }} matching hosts
-      {% for host in current_hosts %}
-      {{ loop.index }}. {{ host }}
-      {% endfor %}
-  when: true  # Set to false to disable debugging
-
-- name: Extract new host IP and hostname
+- name: Filter out already detected hosts
   ansible.builtin.set_fact:
-    new_host_ip: "{{ current_hosts[0].split(',')[0] if current_hosts | length > 0 else '' }}"
-    new_host_name: "{{ current_hosts[0].split(',')[1] if current_hosts | length > 0 else '' }}"
+    new_avahi_hosts: "{{ avahi_hosts | difference(initial_hosts) }}"
+
+- name: Extract new host IP
+  ansible.builtin.set_fact:
+    new_host_ip: "{{ new_avahi_hosts[0] if new_avahi_hosts | length > 0 else '' }}"
+    new_host_name: "{{ hostname_filter }}-Node"
 
 - name: Display detected host
   ansible.builtin.debug:
@@ -86,14 +52,27 @@
       Mapping to: {{ machine.name }}
   when: new_host_ip != ''
 
+- name: Debug - Show avahi scan results
+  ansible.builtin.debug:
+    msg: |
+      ═══════════════════════════════════════════════════════════════════
+      Avahi mDNS Scan Results:
+      ═══════════════════════════════════════════════════════════════════
+      All hosts found: {{ avahi_hosts }}
+      Initial hosts: {{ initial_hosts }}
+      New hosts: {{ new_avahi_hosts }}
+      Selected IP: {{ new_host_ip }}
+  when: true  # Set to false to disable debugging
+
 - name: Warn if no host detected
   ansible.builtin.debug:
     msg: |
-      ⚠ No new host with hostname '{{ hostname_filter }}' detected.
+      ⚠ No new host with hostname '{{ hostname_filter }}' detected via mDNS.
       Please check:
-      - Machine is powered on
+      - Machine is powered on and booted
       - Network cable is connected
-      - Machine hostname is set to {{ hostname_filter }}-Node
+      - Machine is on the same network ({{ network_config.subnet }})
+      - Avahi daemon is running on the target machine
   when: new_host_ip == ''
 
 - name: Update machine with detected IP
