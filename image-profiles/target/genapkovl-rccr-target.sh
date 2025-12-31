@@ -92,7 +92,7 @@ fi
 mkdir -p "$tmp"/etc/avahi
 cat > "$tmp"/etc/avahi/avahi-daemon.conf <<'EOF'
 [server]
-host-name=ReCyClusteR-Target
+host-name=ReCyClusteR-Node
 domain-name=local
 use-ipv4=yes
 use-ipv6=no
@@ -156,7 +156,7 @@ cat <<'MOTD'
 ╚═══════════════════════════════════════════════════════════════════╝
 
 System Information:
-  Hostname: ReCyClusteR-Target
+  Hostname: ReCyClusteR-Node
   Type: Target Node (Worker)
   OS: Alpine Linux
 

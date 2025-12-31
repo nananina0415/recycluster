@@ -125,7 +125,7 @@
               Please check:
               - Machine is powered on
               - Network cable is connected
-              - Machine hostname is set to {{ hostname_filter }}-Control or {{ hostname_filter }}-Target
+              - Machine hostname is set to {{ hostname_filter }}-Node
           when: new_host_ip == ''
 
         - name: Update machine with detected IP
