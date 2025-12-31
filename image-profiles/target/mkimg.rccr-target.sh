@@ -8,10 +8,19 @@ profile_rccr_target() {
 	image_ext="iso"
 	arch="x86 x86_64 aarch64 armv7 armhf"
 	output_format="iso"
-	kernel_flavors="lts"
 	kernel_cmdline="modules=loop,squashfs,sd-mod,usb-storage quiet"
 	hostname="ReCyClusteR-Target"
 	modloop_sign=no  # Disable kernel module signing (no private key)
+
+	# Use Raspberry Pi kernel for ARM architectures
+	case "$ARCH" in
+		armhf|armv7|aarch64)
+			kernel_flavors="rpi"
+			;;
+		*)
+			kernel_flavors="lts"
+			;;
+	esac
 
 	# RCCR Target packages: minimal Docker + Python
 	apks="$apks

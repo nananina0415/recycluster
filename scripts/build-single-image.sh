@@ -77,7 +77,7 @@ case "$ARCH" in
         ;;
     rpi-aarch64)
         PLATFORM="linux/arm64"
-        ALPINE_ARCH="aarch64"  # Raspberry Pi uses standard aarch64
+        ALPINE_ARCH="aarch64"
         ;;
     armv7)
         PLATFORM="linux/arm/v7"
