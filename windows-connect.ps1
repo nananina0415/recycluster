@@ -1,5 +1,6 @@
 # RCCR Windows Auto-Connect Script
 # Automatically finds and connects to Control node
+# Compatible with PowerShell 5.1+
 
 param(
     [string]$Subnet = "192.168.1",
@@ -15,18 +16,30 @@ Write-Host ""
 # 1. Network scan
 $networkRange = $Subnet + ".0/24"
 Write-Host "[1/3] Scanning network $networkRange for active hosts..." -ForegroundColor Yellow
-Write-Host "      (This may take 5-10 seconds)" -ForegroundColor Gray
+Write-Host "      (This may take 10-15 seconds)" -ForegroundColor Gray
 
 $activeHosts = @()
-$subnetBase = $Subnet
-1..254 | ForEach-Object -Parallel {
-    $ip = $using:subnetBase + "." + $_
-    if (Test-Connection -ComputerName $ip -Count 1 -TimeoutSeconds 1 -Quiet) {
-        $ip
+
+# PowerShell 5.1 compatible: Use jobs for parallel scanning
+$jobs = @()
+1..254 | ForEach-Object {
+    $ip = $Subnet + "." + $_
+    $jobs += Start-Job -ScriptBlock {
+        param($addr)
+        if (Test-Connection -ComputerName $addr -Count 1 -Quiet) {
+            $addr
+        }
+    } -ArgumentList $ip
+}
+
+# Wait for all jobs and collect results
+$jobs | Wait-Job | ForEach-Object {
+    $result = Receive-Job $_
+    if ($result) {
+        $activeHosts += $result
+        Write-Host "      Found: $result" -ForegroundColor Green
     }
-} -ThrottleLimit 50 | ForEach-Object {
-    $activeHosts += $_
-    Write-Host "      Found: $_" -ForegroundColor Green
+    Remove-Job $_
 }
 
 if ($activeHosts.Count -eq 0) {
@@ -37,6 +50,7 @@ if ($activeHosts.Count -eq 0) {
     Write-Host "  1. Check if Control node is powered on" -ForegroundColor Gray
     Write-Host "  2. Try different subnet: .\windows-connect.ps1 -Subnet '192.168.0'" -ForegroundColor Gray
     Write-Host "  3. Check your network settings (ipconfig)" -ForegroundColor Gray
+    Write-Host "  4. Check PowerShell version: `$PSVersionTable.PSVersion" -ForegroundColor Gray
     exit 1
 }
 
