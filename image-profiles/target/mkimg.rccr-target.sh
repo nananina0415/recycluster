@@ -11,6 +11,7 @@ profile_rccr_target() {
 	kernel_flavors="lts"
 	kernel_cmdline="modules=loop,squashfs,sd-mod,usb-storage quiet"
 	hostname="ReCyClusteR-Target"
+	modloop_sign=no  # Disable kernel module signing (no private key)
 
 	# RCCR Target packages: minimal Docker + Python
 	apks="$apks

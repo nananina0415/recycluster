@@ -11,6 +11,7 @@ profile_rccr_control() {
 	kernel_flavors="lts"
 	kernel_cmdline="modules=loop,squashfs,sd-mod,usb-storage quiet"
 	hostname="ReCyClusteR-Control"
+	modloop_sign=no  # Disable kernel module signing (no private key)
 
 	# RCCR Control packages: Ansible, Docker, Python, networking tools
 	apks="$apks
