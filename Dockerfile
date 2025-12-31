@@ -9,15 +9,13 @@ LABEL org.opencontainers.image.version="0.0.2"
 RUN apk add --no-cache \
     openssh-client \
     openssh-keygen \
-    nmap \
-    avahi \
-    avahi-tools \
     ansible \
     bash \
     python3 \
     py3-yaml \
     git \
     curl \
+    iputils \
     && rm -rf /var/cache/apk/*
 
 # Create application directory

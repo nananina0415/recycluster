@@ -19,17 +19,19 @@
   register: user_confirmation
 
 - name: Scan network for active hosts (ping scan)
-  ansible.builtin.command:
-    cmd: nmap -sn -oG - {{ network_config.subnet }}
+  ansible.builtin.shell: |
+    network="{{ network_config.subnet | regex_replace('/.*$', '') }}"
+    prefix=$(echo $network | cut -d. -f1-3)
+    for i in {1..254}; do
+      (ping -c 1 -W 1 $prefix.$i >/dev/null 2>&1 && echo "$prefix.$i") &
+    done
+    wait
   register: new_scan
   changed_when: false
 
 - name: Parse active hosts from scan
   ansible.builtin.set_fact:
-    current_hosts: "{{ new_scan.stdout_lines |
-      select('search', 'Status: Up') |
-      map('regex_replace', '^Host: ([0-9.]+) .*$', '\\1') |
-      list }}"
+    current_hosts: "{{ new_scan.stdout_lines | select('match', '^[0-9]') | list }}"
 
 - name: Find newly appeared hosts
   ansible.builtin.set_fact:

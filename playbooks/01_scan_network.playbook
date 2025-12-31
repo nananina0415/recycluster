@@ -24,30 +24,20 @@
           Subnet: {{ network_config.subnet }}
           Machines to detect: {{ machines | length }}
 
-    - name: Check if nmap is installed
-      ansible.builtin.command:
-        cmd: which nmap
-      register: nmap_check
-      failed_when: false
-      changed_when: false
-
-    - name: Fail if nmap is not installed
-      ansible.builtin.fail:
-        msg: "nmap is not installed. Please install it: apk add nmap"
-      when: nmap_check.rc != 0
-
-    - name: Take initial network snapshot
-      ansible.builtin.command:
-        cmd: nmap -sn -oG - {{ network_config.subnet }}
+    - name: Take initial network snapshot (ping scan)
+      ansible.builtin.shell: |
+        network="{{ network_config.subnet | regex_replace('/.*$', '') }}"
+        prefix=$(echo $network | cut -d. -f1-3)
+        for i in {1..254}; do
+          (ping -c 1 -W 1 $prefix.$i >/dev/null 2>&1 && echo "$prefix.$i") &
+        done
+        wait
       register: initial_scan
       changed_when: false
 
     - name: Parse initial hosts from scan
       ansible.builtin.set_fact:
-        initial_hosts: "{{ initial_scan.stdout_lines |
-          select('search', 'Status: Up') |
-          map('regex_replace', '^Host: ([0-9.]+) .*$', '\\1') |
-          list }}"
+        initial_hosts: "{{ initial_scan.stdout_lines | select('match', '^[0-9]') | list }}"
 
     - name: Display initial network state
       ansible.builtin.debug:
