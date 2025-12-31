@@ -15,12 +15,14 @@ Write-Host "╚═════════════════════�
 Write-Host ""
 
 # 1. 네트워크 스캔
-Write-Host "[1/3] Scanning network ${Subnet}.0/24 for active hosts..." -ForegroundColor Yellow
+$networkRange = "$Subnet.0/24"
+Write-Host "[1/3] Scanning network $networkRange for active hosts..." -ForegroundColor Yellow
 Write-Host "      (This may take 5-10 seconds)" -ForegroundColor Gray
 
 $activeHosts = @()
+$subnetPrefix = $Subnet
 1..254 | ForEach-Object -Parallel {
-    $ip = "$($using:Subnet).$_"
+    $ip = "$($using:subnetPrefix).$_"
     if (Test-Connection -ComputerName $ip -Count 1 -TimeoutSeconds 1 -Quiet) {
         $ip
     }
@@ -31,7 +33,7 @@ $activeHosts = @()
 
 if ($activeHosts.Count -eq 0) {
     Write-Host ""
-    Write-Host "❌ No active hosts found on network ${Subnet}.0/24" -ForegroundColor Red
+    Write-Host "❌ No active hosts found on network $networkRange" -ForegroundColor Red
     Write-Host ""
     Write-Host "Tips:" -ForegroundColor Yellow
     Write-Host "  1. Check if Control node is powered on" -ForegroundColor Gray
@@ -89,8 +91,10 @@ Write-Host "[3/3] Connecting to Control node..." -ForegroundColor Yellow
 Write-Host ""
 Write-Host "╔═══════════════════════════════════════════════════════════════════╗" -ForegroundColor Green
 Write-Host "║  Control Node Found!                                             ║" -ForegroundColor Green
-Write-Host "║  IP Address: $matchedHost".PadRight(68) + "║" -ForegroundColor Green
-Write-Host "║  Hostname: $Hostname".PadRight(68) + "║" -ForegroundColor Green
+$ipLine = "║  IP Address: $matchedHost"
+Write-Host ($ipLine.PadRight(68) + "║") -ForegroundColor Green
+$hostLine = "║  Hostname: $Hostname"
+Write-Host ($hostLine.PadRight(68) + "║") -ForegroundColor Green
 Write-Host "╚═══════════════════════════════════════════════════════════════════╝" -ForegroundColor Green
 Write-Host ""
 
