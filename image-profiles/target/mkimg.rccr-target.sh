@@ -24,10 +24,12 @@ profile_rccr_target() {
 	case "$RCCR_ARCH" in
 		rpi-aarch64|armv7|armhf)
 			# Raspberry Pi: IMG disk image (FAT32 boot + ext4 root)
+			# Uses Alpine's create_image_imggz() from mkimg.arm.sh
 			image_ext="img.gz"
-			output_format="rpi"
+			output_format="imggz"  # Alpine: create_image_imggz()
 			kernel_flavors="rpi"
 			kernel_cmdline="modules=loop,squashfs console=tty1"
+			initfs_features="base squashfs"
 			# Map RCCR_ARCH to Alpine arch
 			case "$RCCR_ARCH" in
 				rpi-aarch64)  arch="aarch64" ;;
@@ -37,10 +39,12 @@ profile_rccr_target() {
 			;;
 		x86|x86_64|aarch64)
 			# PC/Server: ISO image (CD/DVD boot)
+			# Uses Alpine's create_image_iso() from mkimg.base.sh
 			image_ext="iso"
 			output_format="iso"
 			kernel_flavors="lts"
 			kernel_cmdline="modules=loop,squashfs,sd-mod,usb-storage quiet"
+			initfs_features="ata base ide scsi usb virtio"
 			# Map RCCR_ARCH to Alpine arch (1:1 mapping)
 			case "$RCCR_ARCH" in
 				x86)      arch="x86" ;;
