@@ -6,7 +6,7 @@
 
 ## ✨ 특징
 
-- 🚀 **즉시 부팅 가능**: ISO/IMG 파일을 플래시하여 바로 사용
+- 🚀 **즉시 부팅 가능**: ISO(x86/x86_64) / IMG(ARM/Raspberry Pi) 파일을 플래시하여 바로 사용
 - 🔍 **자동 호스트 감지**: `ReCyClusteR` 호스트명 기반 자동 필터링
 - 🤖 **Ansible 100%**: Python 스크립트 없이 순수 Ansible 플레이북
 - 🔐 **이중 보안**: 원격 접속(비밀번호) + 노드 간 통신(SSH 키)
@@ -38,21 +38,21 @@
 | **Control** | 클러스터 관리 노드 | Ansible, Docker, SSH |
 | **Target** | 워커 노드 | Docker, SSH |
 
-| 아키텍처 | 설명 | 예시 |
-|---------|------|------|
-| `x86_64` | 64-bit x86 | 현대 PC, 서버 |
-| `aarch64` | 64-bit ARM | Raspberry Pi 3/4/5 |
-| `rpi-aarch64` | 라즈베리파이용 ARM64 | Raspberry Pi 전용 |
-| `armv7` | 32-bit ARMv7 | Raspberry Pi 2/3 |
-| `armhf` | 32-bit ARM | Raspberry Pi 1/Zero |
-| `x86` | 32-bit x86 | 구형 PC |
+| 아키텍처 | 파일 형식 | 설명 | 예시 |
+|---------|---------|------|------|
+| `x86_64` | ISO | 64-bit x86 | 현대 PC, 서버 |
+| `x86` | ISO | 32-bit x86 | 구형 PC |
+| `rpi-aarch64` | IMG.GZ | 라즈베리파이용 ARM64 | Raspberry Pi 3/4/5 전용 |
+| `armv7` | IMG.GZ | 32-bit ARMv7 | Raspberry Pi 2/3 |
+| `armhf` | IMG.GZ | 32-bit ARM | Raspberry Pi 1/Zero |
+| `aarch64` | IMG.GZ | 64-bit ARM | 일반 ARM64 서버 |
 
 ```bash
-# Control 노드 (x86_64 예시)
+# Control 노드 (x86_64 예시 - ISO 형식)
 wget https://github.com/nananina0415/recycluster/releases/latest/download/rccr-0.0.4-x86_64-control.iso
 
-# Target 노드 (aarch64 예시)
-wget https://github.com/nananina0415/recycluster/releases/latest/download/rccr-0.0.4-aarch64-target.img
+# Target 노드 (Raspberry Pi 예시 - IMG.GZ 형식)
+wget https://github.com/nananina0415/recycluster/releases/latest/download/rccr-0.0.4-rpi-aarch64-target.img.gz
 ```
 
 #### 1.2. 체크섬 검증
@@ -72,14 +72,19 @@ sha256sum -c SHA256SUMS
 # USB/SD 카드 확인
 lsblk
 
-# 플래시 (주의: /dev/sdX를 올바른 디바이스로 변경)
+# x86/x86_64: ISO 플래시
 sudo dd if=rccr-0.0.4-x86_64-control.iso of=/dev/sdX bs=4M status=progress
+
+# Raspberry Pi: IMG.GZ 압축 해제 후 플래시
+gunzip -c rccr-0.0.4-rpi-aarch64-control.img.gz | sudo dd of=/dev/sdX bs=4M status=progress
+
 sync
 ```
 
 **Windows:**
 - [Rufus](https://rufus.ie/) 또는 [Etcher](https://www.balena.io/etcher/) 사용
-- ISO/IMG 파일 선택 후 플래시
+- ISO 파일: 직접 선택 후 플래시
+- IMG.GZ 파일: 압축 해제 후 IMG 파일 플래시 (또는 Etcher가 자동 처리)
 
 #### 1.4. 부팅
 

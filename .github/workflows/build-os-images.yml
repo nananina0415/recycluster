@@ -100,16 +100,16 @@ jobs:
 
           echo ""
           echo "=== Looking for ISO/IMG files ==="
-          find build/${{ matrix.arch }}-${{ matrix.type }} -type f \( -name "*.iso" -o -name "*.img" \) -ls
+          find build/${{ matrix.arch }}-${{ matrix.type }} -type f \( -name "*.iso" -o -name "*.img" -o -name "*.img.gz" \) -ls
 
           echo ""
           echo "=== Checking if files exist ==="
-          if ! ls build/${{ matrix.arch }}-${{ matrix.type }}/rccr-*.iso 1> /dev/null 2>&1; then
-            echo "ERROR: No ISO file found!"
+          if ! ls build/${{ matrix.arch }}-${{ matrix.type }}/rccr-*.{iso,img,img.gz} 1> /dev/null 2>&1; then
+            echo "ERROR: No ISO/IMG file found!"
             echo "Build may have failed. Check the build logs above."
             exit 1
           fi
-          echo "✓ ISO file found"
+          echo "✓ Image file found"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -118,6 +118,7 @@ jobs:
           path: |
             build/${{ matrix.arch }}-${{ matrix.type }}/rccr-*.iso
             build/${{ matrix.arch }}-${{ matrix.type }}/rccr-*.img
+            build/${{ matrix.arch }}-${{ matrix.type }}/rccr-*.img.gz
             build/${{ matrix.arch }}-${{ matrix.type }}/SHA256SUMS
           if-no-files-found: error
           retention-days: 30
@@ -150,11 +151,11 @@ jobs:
 
           echo ""
           echo "=== Finding ISO/IMG files ==="
-          find artifacts -type f \( -name "*.iso" -o -name "*.img" \)
+          find artifacts -type f \( -name "*.iso" -o -name "*.img" -o -name "*.img.gz" \)
 
           echo ""
           echo "=== Copying files to release/ ==="
-          find artifacts -type f \( -name "*.iso" -o -name "*.img" \) -exec cp -v {} release/ \;
+          find artifacts -type f \( -name "*.iso" -o -name "*.img" -o -name "*.img.gz" \) -exec cp -v {} release/ \;
 
           echo ""
           echo "=== Checking release directory ==="
@@ -204,12 +205,15 @@ jobs:
 
           ### 🏗️ 지원 아키텍처
 
+          **x86/x86_64 (ISO 형식)**:
           - `x86_64`: 64-bit x86 (현대 PC, 서버)
-          - `aarch64`: 64-bit ARM (Raspberry Pi 3/4/5, ARM64 서버)
-          - `rpi-aarch64`: Raspberry Pi 전용 ARM64
-          - `armv7`: 32-bit ARMv7 (Raspberry Pi 2/3)
-          - `armhf`: 32-bit ARM (Raspberry Pi 1/Zero)
           - `x86`: 32-bit x86 (구형 PC)
+
+          **ARM (IMG 형식 - Raspberry Pi)**:
+          - `rpi-aarch64`: Raspberry Pi 3/4/5 (64-bit ARM)
+          - `armv7`: Raspberry Pi 2/3 (32-bit ARMv7)
+          - `armhf`: Raspberry Pi 1/Zero (32-bit ARM)
+          - `aarch64`: 일반 ARM64 서버
 
           ### 🚀 사용 방법
 
@@ -224,8 +228,11 @@ jobs:
 
           2. **부팅 미디어 생성**
              ```bash
-             # USB/SD 카드에 플래시
-             dd if=rccr-*.iso of=/dev/sdX bs=4M status=progress
+             # x86/x86_64: ISO를 USB에 플래시
+             dd if=rccr-*-x86_64-control.iso of=/dev/sdX bs=4M status=progress
+
+             # Raspberry Pi: IMG.GZ를 SD카드에 플래시
+             gunzip -c rccr-*-rpi-aarch64-control.img.gz | dd of=/dev/sdX bs=4M status=progress
              ```
 
           3. **부팅 및 설정**
@@ -283,7 +290,7 @@ jobs:
           echo "| File | Size |" >> $GITHUB_STEP_SUMMARY
           echo "|------|------|" >> $GITHUB_STEP_SUMMARY
           cd release
-          for file in *.iso *.img; do
+          for file in *.iso *.img *.img.gz; do
             if [ -f "$file" ]; then
               size=$(ls -lh "$file" | awk '{print $5}')
               echo "| $file | $size |" >> $GITHUB_STEP_SUMMARY
