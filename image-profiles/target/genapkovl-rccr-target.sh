@@ -86,22 +86,6 @@ if [ -f /tmp/rccr-ssh/id_rsa.pub ]; then
 fi
 
 # ===================================================================
-# Docker Configuration
-# ===================================================================
-
-mkdir -p "$tmp"/etc/docker
-cat > "$tmp"/etc/docker/daemon.json <<'EOF'
-{
-  "log-driver": "json-file",
-  "log-opts": {
-    "max-size": "10m",
-    "max-file": "3"
-  },
-  "storage-driver": "overlay2"
-}
-EOF
-
-# ===================================================================
 # Init Scripts
 # ===================================================================
 
@@ -118,7 +102,6 @@ sleep 2
 
 # Ensure services are running
 rc-service sshd start 2>/dev/null || true
-rc-service docker start 2>/dev/null || true
 
 # Display MOTD
 cat <<'MOTD'
@@ -137,7 +120,7 @@ System Information:
 
 Status:
   ✓ SSH Server: Running
-  ✓ Docker Engine: Running
+  ✓ Python3: Installed
   ✓ Hostname: ReCyClusteR-Node
 
 This node is ready to be managed by the Control Node.
@@ -159,7 +142,6 @@ mkdir -p "$tmp"/etc/apk
 cat > "$tmp"/etc/apk/world <<'EOF'
 openssh
 python3
-docker
 sudo
 EOF
 
@@ -169,7 +151,6 @@ EOF
 
 # Enable services
 rc_add sshd default
-rc_add docker default
 rc_add local default
 
 # ===================================================================
@@ -182,8 +163,6 @@ cat > "$tmp"/root/.profile <<'EOF'
 export PS1='rccr-target:\w\$ '
 
 alias ll='ls -lah'
-alias logs='docker logs'
-alias ps='docker ps'
 
 # Welcome message
 if [ -f /etc/motd ]; then

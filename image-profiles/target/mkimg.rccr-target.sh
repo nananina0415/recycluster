@@ -58,11 +58,10 @@ profile_rccr_target() {
 			;;
 	esac
 
-	# RCCR Target packages: minimal Docker + Python
+	# RCCR Target packages: Minimal (SSH + Python only)
 	apks="$apks
 		openssh openssh-server
 		python3
-		docker docker-compose docker-cli-compose
 		sudo
 		"
 
@@ -80,5 +79,5 @@ profile_rccr_target() {
 
 	# Boot and default services
 	boot_services="networking chronyd"
-	default_services="docker sshd local"
+	default_services="sshd local"
 }

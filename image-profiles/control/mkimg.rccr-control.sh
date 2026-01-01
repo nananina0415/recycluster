@@ -58,12 +58,11 @@ profile_rccr_control() {
 			;;
 	esac
 
-	# RCCR Control packages: Ansible, Docker, Python
+	# RCCR Control packages: Minimal + Ansible for cluster management
 	apks="$apks
-		openssh openssh-client openssh-server openssh-keygen
+		openssh openssh-server
 		python3 py3-pip py3-yaml
 		ansible
-		docker docker-compose docker-cli-compose
 		sudo
 		"
 
@@ -81,5 +80,5 @@ profile_rccr_control() {
 
 	# Boot and default services
 	boot_services="networking chronyd"
-	default_services="docker sshd local"
+	default_services="sshd local"
 }
