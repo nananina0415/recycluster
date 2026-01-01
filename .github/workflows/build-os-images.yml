@@ -205,15 +205,15 @@ jobs:
 
           ### 🏗️ 지원 아키텍처
 
-          **x86/x86_64 (ISO 형식)**:
+          **ISO 형식 (PC/Server)**:
           - `x86_64`: 64-bit x86 (현대 PC, 서버)
           - `x86`: 32-bit x86 (구형 PC)
+          - `aarch64`: 64-bit ARM (일반 ARM64 서버, non-RPi)
 
-          **ARM (IMG 형식 - Raspberry Pi)**:
+          **IMG.GZ 형식 (Raspberry Pi 전용)**:
           - `rpi-aarch64`: Raspberry Pi 3/4/5 (64-bit ARM)
           - `armv7`: Raspberry Pi 2/3 (32-bit ARMv7)
           - `armhf`: Raspberry Pi 1/Zero (32-bit ARM)
-          - `aarch64`: 일반 ARM64 서버
 
           ### 🚀 사용 방법
 

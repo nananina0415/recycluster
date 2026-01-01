@@ -42,10 +42,10 @@
 |---------|---------|------|------|
 | `x86_64` | ISO | 64-bit x86 | 현대 PC, 서버 |
 | `x86` | ISO | 32-bit x86 | 구형 PC |
+| `aarch64` | ISO | 64-bit ARM | 일반 ARM64 서버 (non-RPi) |
 | `rpi-aarch64` | IMG.GZ | 라즈베리파이용 ARM64 | Raspberry Pi 3/4/5 전용 |
 | `armv7` | IMG.GZ | 32-bit ARMv7 | Raspberry Pi 2/3 |
 | `armhf` | IMG.GZ | 32-bit ARM | Raspberry Pi 1/Zero |
-| `aarch64` | IMG.GZ | 64-bit ARM | 일반 ARM64 서버 |
 
 ```bash
 # Control 노드 (x86_64 예시 - ISO 형식)
