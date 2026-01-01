@@ -151,22 +151,6 @@ ssh_args = -o ControlMaster=auto -o ControlPersist=60s
 EOF
 
 # ===================================================================
-# Docker Configuration
-# ===================================================================
-
-mkdir -p "$tmp"/etc/docker
-cat > "$tmp"/etc/docker/daemon.json <<'EOF'
-{
-  "log-driver": "json-file",
-  "log-opts": {
-    "max-size": "10m",
-    "max-file": "3"
-  },
-  "storage-driver": "overlay2"
-}
-EOF
-
-# ===================================================================
 # Init Scripts
 # ===================================================================
 
@@ -183,7 +167,6 @@ sleep 2
 
 # Ensure services are running
 rc-service sshd start 2>/dev/null || true
-rc-service docker start 2>/dev/null || true
 
 # First boot setup
 SETUP_FLAG="/root/.rccr-setup-done"
@@ -250,7 +233,6 @@ Quick Start:
 
 Available Commands:
   - ansible-playbook: Run cluster automation
-  - docker: Container management
 
 Configuration: /root/rccr/cluster_config.yml
 Documentation: /root/rccr/README.md
@@ -279,11 +261,9 @@ chmod +x "$tmp"/etc/local.d/rccr-init.start
 mkdir -p "$tmp"/etc/apk
 cat > "$tmp"/etc/apk/world <<'EOF'
 openssh
-openssh-client
 python3
 py3-yaml
 ansible
-docker
 sudo
 EOF
 
@@ -293,7 +273,6 @@ EOF
 
 # Enable services
 rc_add sshd default
-rc_add docker default
 rc_add local default
 
 # ===================================================================

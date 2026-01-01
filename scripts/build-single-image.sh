@@ -244,11 +244,19 @@ docker run --rm --privileged \
         cd /output
         ls -lh
 
-        # Find and rename ISO
-        for file in *.iso; do
-            if [ -f \"\$file\" ]; then
-                mv \"\$file\" rccr-${VERSION}-${ARCH}-${TYPE}.iso
-                echo \"✓ Renamed to: rccr-${VERSION}-${ARCH}-${TYPE}.iso\"
+        # Find and rename output file (ISO or IMG)
+        renamed=false
+        for file in *.iso *.img.gz *.img; do
+            if [ -f \"\$file\" ] && [ \"\$renamed\" = \"false\" ]; then
+                # Detect extension
+                case \"\$file\" in
+                    *.img.gz) ext=\"img.gz\" ;;
+                    *.img)    ext=\"img\" ;;
+                    *.iso)    ext=\"iso\" ;;
+                esac
+                mv \"\$file\" rccr-${VERSION}-${ARCH}-${TYPE}.\$ext
+                echo \"✓ Renamed to: rccr-${VERSION}-${ARCH}-${TYPE}.\$ext\"
+                renamed=true
             fi
         done
 
