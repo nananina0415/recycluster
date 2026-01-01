@@ -25,22 +25,28 @@ profile_rccr_control() {
 		rpi-aarch64|armv7|armhf)
 			# Raspberry Pi: IMG disk image (FAT32 boot + ext4 root)
 			image_ext="img.gz"
-			arch="aarch64 armv7 armhf"
 			output_format="rpi"
 			kernel_flavors="rpi"
 			kernel_cmdline="modules=loop,squashfs console=tty1"
+			# Map RCCR_ARCH to Alpine arch
+			case "$RCCR_ARCH" in
+				rpi-aarch64)  arch="aarch64" ;;
+				armv7)        arch="armv7" ;;
+				armhf)        arch="armhf" ;;
+			esac
 			;;
 		x86|x86_64|aarch64)
 			# PC/Server: ISO image (CD/DVD boot)
 			image_ext="iso"
+			output_format="iso"
+			kernel_flavors="lts"
+			kernel_cmdline="modules=loop,squashfs,sd-mod,usb-storage quiet"
+			# Map RCCR_ARCH to Alpine arch (1:1 mapping)
 			case "$RCCR_ARCH" in
 				x86)      arch="x86" ;;
 				x86_64)   arch="x86_64" ;;
 				aarch64)  arch="aarch64" ;;
 			esac
-			output_format="iso"
-			kernel_flavors="lts"
-			kernel_cmdline="modules=loop,squashfs,sd-mod,usb-storage quiet"
 			;;
 		*)
 			echo "ERROR: Unknown architecture: $RCCR_ARCH" >&2
