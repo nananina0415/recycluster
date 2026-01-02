@@ -213,8 +213,8 @@ if [ $NETWORK_OK -eq 0 ]; then
     echo "  2. Check DHCP server is running"
     echo "  3. Reboot: 'reboot'"
     echo ""
-    echo "Press Enter to continue anyway (limited functionality)..."
-    read dummy
+    echo "Continuing with limited functionality in 5 seconds..."
+    sleep 5
 fi
 
 # ===================================================================
