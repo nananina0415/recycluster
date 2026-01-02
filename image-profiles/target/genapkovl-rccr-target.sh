@@ -59,9 +59,6 @@ PubkeyAuthentication yes
 PasswordAuthentication no
 PermitEmptyPasswords no
 
-# PAM
-UsePAM yes
-
 # X11 and forwarding
 X11Forwarding no
 

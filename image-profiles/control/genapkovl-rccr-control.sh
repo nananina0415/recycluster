@@ -67,10 +67,6 @@ PermitRootLogin yes
 PubkeyAuthentication yes
 PasswordAuthentication yes
 PermitEmptyPasswords no
-ChallengeResponseAuthentication no
-
-# PAM
-UsePAM yes
 
 # X11 and forwarding
 X11Forwarding no
