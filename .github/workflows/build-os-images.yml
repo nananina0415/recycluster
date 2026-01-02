@@ -85,10 +85,25 @@ jobs:
           echo "Version: ${{ steps.version.outputs.VERSION }}"
           echo ""
 
-          bash scripts/build-single-image.sh \
-            ${{ matrix.arch }} \
-            ${{ matrix.type }} \
-            ${{ steps.version.outputs.VERSION }}
+          # Use different build scripts based on architecture
+          case "${{ matrix.arch }}" in
+            rpi-aarch64|armv7|armhf)
+              # Raspberry Pi: Use Alpine official IMG
+              echo "Using build-rpi-from-official.sh (Alpine official IMG)"
+              bash scripts/build-rpi-from-official.sh \
+                ${{ matrix.arch }} \
+                ${{ matrix.type }} \
+                ${{ steps.version.outputs.VERSION }}
+              ;;
+            *)
+              # x86/x86_64/aarch64: Use mkimage.sh
+              echo "Using build-single-image.sh (mkimage.sh)"
+              bash scripts/build-single-image.sh \
+                ${{ matrix.arch }} \
+                ${{ matrix.type }} \
+                ${{ steps.version.outputs.VERSION }}
+              ;;
+          esac
 
           echo ""
           echo "=== Build completed ==="
