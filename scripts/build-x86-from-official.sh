@@ -140,34 +140,37 @@ OUTPUT_ISO="$OUTPUT_DIR/rccr-$VERSION-$ARCH-$TYPE.iso"
 if [ "$ARCH" = "aarch64" ]; then
     # aarch64: UEFI only (no BIOS/syslinux)
     echo "  Using UEFI boot (aarch64)"
-    echo ""
-    echo "  === Debugging ISO structure ==="
-    echo "  Top-level contents:"
-    sudo ls -la "$ISO_WORK/" | head -20
-    echo ""
 
-    if [ -d "$ISO_WORK/boot" ]; then
-        echo "  /boot contents:"
-        sudo ls -laR "$ISO_WORK/boot/" | head -40
+    # Check for EFI boot files
+    if [ -f "$ISO_WORK/efi/boot/bootaa64.efi" ]; then
+        echo "  Found: /efi/boot/bootaa64.efi"
+
+        # Create ISO with EFI boot support
+        sudo genisoimage \
+            -o "$OUTPUT_ISO" \
+            -J -joliet-long \
+            -R \
+            -V "RCCR_${TYPE^^}" \
+            -A "RCCR Alpine Linux" \
+            -efi-boot efi/boot/bootaa64.efi \
+            -no-emul-boot \
+            "$ISO_WORK" 2>&1 | grep -v "Warning: creating filesystem that does not conform"
     else
-        echo "  No /boot directory found"
+        echo "  WARNING: /efi/boot/bootaa64.efi not found, trying alternative methods"
+
+        # Try to find any EFI directory
+        if [ -d "$ISO_WORK/EFI" ] || [ -d "$ISO_WORK/efi" ]; then
+            echo "  Found EFI directory, creating basic ISO"
+        fi
+
+        # Create basic ISO (will still contain EFI files, just no boot flag)
+        sudo genisoimage \
+            -o "$OUTPUT_ISO" \
+            -J -joliet-long \
+            -R \
+            -V "RCCR_${TYPE^^}" \
+            "$ISO_WORK" 2>&1 | grep -v "Warning: creating filesystem that does not conform"
     fi
-    echo ""
-
-    echo "  Searching for EFI-related files:"
-    sudo find "$ISO_WORK" -type f \( -name "*efi*" -o -name "*EFI*" \) 2>/dev/null | head -20
-    echo "  ==================================="
-    echo ""
-
-    # Create basic ISO without boot options for aarch64
-    # (Alpine aarch64 may use different boot mechanism)
-    echo "  Creating ISO without boot sector (aarch64)"
-    sudo genisoimage \
-        -o "$OUTPUT_ISO" \
-        -joliet \
-        -rational-rock \
-        -V "RCCR_${TYPE^^}" \
-        "$ISO_WORK" 2>&1 | grep -v "Warning: creating filesystem that does not conform"
 else
     # x86/x86_64: BIOS boot (syslinux)
     echo "  Using BIOS boot (x86/x86_64)"
