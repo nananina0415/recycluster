@@ -136,21 +136,55 @@ echo "[5/6] Repacking ISO..."
 
 OUTPUT_ISO="$OUTPUT_DIR/rccr-$VERSION-$ARCH-$TYPE.iso"
 
-# Create new ISO
-sudo genisoimage \
-    -o "$OUTPUT_ISO" \
-    -b boot/syslinux/isolinux.bin \
-    -c boot/syslinux/boot.cat \
-    -no-emul-boot \
-    -boot-load-size 4 \
-    -boot-info-table \
-    -joliet \
-    -rational-rock \
-    -V "RCCR_${TYPE^^}" \
-    "$ISO_WORK" 2>&1 | grep -v "Warning: creating filesystem that does not conform"
+# Create new ISO with architecture-specific boot options
+if [ "$ARCH" = "aarch64" ]; then
+    # aarch64: UEFI only (no BIOS/syslinux)
+    echo "  Using UEFI boot (aarch64)"
 
-# Make bootable
-sudo isohybrid "$OUTPUT_ISO" 2>/dev/null || true
+    # Check for EFI boot image
+    if [ -f "$ISO_WORK/boot/grub/efi.img" ]; then
+        EFI_IMG="boot/grub/efi.img"
+    elif [ -f "$ISO_WORK/efi.img" ]; then
+        EFI_IMG="efi.img"
+    else
+        echo "  WARNING: No EFI image found, creating basic ISO"
+        sudo genisoimage \
+            -o "$OUTPUT_ISO" \
+            -joliet \
+            -rational-rock \
+            -V "RCCR_${TYPE^^}" \
+            "$ISO_WORK" 2>&1 | grep -v "Warning: creating filesystem that does not conform"
+    fi
+
+    if [ -n "$EFI_IMG" ]; then
+        sudo genisoimage \
+            -o "$OUTPUT_ISO" \
+            -eltorito-boot "$EFI_IMG" \
+            -eltorito-platform efi \
+            -no-emul-boot \
+            -joliet \
+            -rational-rock \
+            -V "RCCR_${TYPE^^}" \
+            "$ISO_WORK" 2>&1 | grep -v "Warning: creating filesystem that does not conform"
+    fi
+else
+    # x86/x86_64: BIOS boot (syslinux)
+    echo "  Using BIOS boot (x86/x86_64)"
+    sudo genisoimage \
+        -o "$OUTPUT_ISO" \
+        -b boot/syslinux/isolinux.bin \
+        -c boot/syslinux/boot.cat \
+        -no-emul-boot \
+        -boot-load-size 4 \
+        -boot-info-table \
+        -joliet \
+        -rational-rock \
+        -V "RCCR_${TYPE^^}" \
+        "$ISO_WORK" 2>&1 | grep -v "Warning: creating filesystem that does not conform"
+
+    # Make bootable (x86 only)
+    sudo isohybrid "$OUTPUT_ISO" 2>/dev/null || true
+fi
 
 sudo chown $(whoami):$(whoami) "$OUTPUT_ISO"
 
