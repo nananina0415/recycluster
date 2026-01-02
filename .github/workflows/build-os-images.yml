@@ -65,6 +65,14 @@ jobs:
           chmod 644 .rccr/ssh_temp_key.pub
           echo "✓ SSH keys generated"
 
+      - name: Install build dependencies
+        run: |
+          echo "Installing ISO build tools..."
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq genisoimage syslinux-utils
+          echo "✓ genisoimage installed: $(which genisoimage)"
+          echo "✓ isohybrid installed: $(which isohybrid)"
+
       - name: Display build info
         run: |
           echo "╔═══════════════════════════════════════════════════════════════════╗"
