@@ -97,13 +97,94 @@ cat > "$tmp"/etc/local.d/target-init.start <<'INITEOF'
 
 # RCCR Target Node Initialization
 
-# Wait for network
-sleep 2
+# ===================================================================
+# Hostname Setup (BEFORE network)
+# ===================================================================
+
+# Ensure hostname is set from overlay before network comes up
+if [ -f /etc/hostname ]; then
+    HOSTNAME=$(cat /etc/hostname)
+    hostname "$HOSTNAME" 2>/dev/null || true
+    echo "✓ Hostname: $HOSTNAME"
+fi
+
+# ===================================================================
+# Network Wait & Check
+# ===================================================================
+
+echo ""
+echo "⚠️  IMPORTANT: Network cable must be connected for initial setup!"
+echo "Waiting for network connection..."
+sleep 3
+
+# Check network connectivity
+MAX_RETRIES=5
+RETRY_COUNT=0
+NETWORK_OK=0
+
+while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+    if ping -c 1 -W 2 dl-cdn.alpinelinux.org >/dev/null 2>&1; then
+        NETWORK_OK=1
+        echo "✓ Network connection established"
+        break
+    fi
+    RETRY_COUNT=$((RETRY_COUNT + 1))
+    echo "  Checking network... ($RETRY_COUNT/$MAX_RETRIES)"
+    sleep 2
+done
+
+if [ $NETWORK_OK -eq 0 ]; then
+    echo ""
+    echo "╔═══════════════════════════════════════════════════════════════════╗"
+    echo "║                         NETWORK ERROR                             ║"
+    echo "╚═══════════════════════════════════════════════════════════════════╝"
+    echo ""
+    echo "⚠️  No network connection detected!"
+    echo ""
+    echo "RCCR requires internet to download packages (SSH, Python)."
+    echo ""
+    echo "Please:"
+    echo "  1. Connect network cable"
+    echo "  2. Check DHCP server is running"
+    echo "  3. Reboot: 'reboot'"
+    echo ""
+    echo "Press Enter to continue anyway (limited functionality)..."
+    read dummy
+fi
+
+# ===================================================================
+# Package Installation (Requires Network)
+# ===================================================================
+
+if [ $NETWORK_OK -eq 1 ] && [ -f /etc/apk/world ]; then
+    # Check if packages are already installed
+    MISSING_PKGS=""
+    while IFS= read -r pkg; do
+        if ! apk info -e "$pkg" >/dev/null 2>&1; then
+            MISSING_PKGS="$MISSING_PKGS $pkg"
+        fi
+    done < /etc/apk/world
+
+    if [ -n "$MISSING_PKGS" ]; then
+        echo ""
+        echo "Installing required packages..."
+        apk update
+        apk add $MISSING_PKGS
+        echo "✓ Packages installed"
+    fi
+fi
+
+# ===================================================================
+# Service Startup
+# ===================================================================
 
 # Ensure services are running
 rc-service sshd start 2>/dev/null || true
 
+# ===================================================================
 # Display MOTD
+# ===================================================================
+
 cat <<'MOTD'
 
 ╔═══════════════════════════════════════════════════════════════════╗
