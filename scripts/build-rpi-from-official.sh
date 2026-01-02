@@ -122,6 +122,18 @@ if [ -f "$PROJECT_DIR/cluster_config.yml" ]; then
     cp "$PROJECT_DIR/cluster_config.yml" /tmp/rccr-files/ 2>/dev/null || true
 fi
 
+# Copy SSH keys to temp location for overlay
+mkdir -p /tmp/rccr-ssh
+if [ -f "$PROJECT_DIR/.rccr/ssh_temp_key" ]; then
+    cp "$PROJECT_DIR/.rccr/ssh_temp_key" /tmp/rccr-ssh/id_rsa
+    cp "$PROJECT_DIR/.rccr/ssh_temp_key.pub" /tmp/rccr-ssh/id_rsa.pub
+    chmod 600 /tmp/rccr-ssh/id_rsa
+    chmod 644 /tmp/rccr-ssh/id_rsa.pub
+    echo "  ✓ SSH keys prepared"
+else
+    echo "  ⚠ WARNING: SSH keys not found at .rccr/ssh_temp_key"
+fi
+
 # Generate overlay
 bash "genapkovl-rccr-$TYPE.sh" "ReCyClusteR-Node" || {
     echo "ERROR: Overlay generation failed"
