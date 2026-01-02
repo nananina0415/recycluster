@@ -141,29 +141,33 @@ if [ "$ARCH" = "aarch64" ]; then
     # aarch64: UEFI only (no BIOS/syslinux)
     echo "  Using UEFI boot (aarch64)"
 
-    # Check for EFI boot image
-    if [ -f "$ISO_WORK/boot/grub/efi.img" ]; then
-        EFI_IMG="boot/grub/efi.img"
-    elif [ -f "$ISO_WORK/efi.img" ]; then
-        EFI_IMG="efi.img"
-    else
-        echo "  WARNING: No EFI image found, creating basic ISO"
-        sudo genisoimage \
-            -o "$OUTPUT_ISO" \
-            -joliet \
-            -rational-rock \
-            -V "RCCR_${TYPE^^}" \
-            "$ISO_WORK" 2>&1 | grep -v "Warning: creating filesystem that does not conform"
-    fi
+    # Check for EFI boot files
+    if [ -f "$ISO_WORK/efi/boot/bootaa64.efi" ]; then
+        echo "  Found: /efi/boot/bootaa64.efi"
 
-    if [ -n "$EFI_IMG" ]; then
+        # Create ISO with EFI boot support
         sudo genisoimage \
             -o "$OUTPUT_ISO" \
-            -eltorito-boot "$EFI_IMG" \
-            -eltorito-platform efi \
+            -J -joliet-long \
+            -R \
+            -V "RCCR_${TYPE^^}" \
+            -A "RCCR Alpine Linux" \
+            -efi-boot efi/boot/bootaa64.efi \
             -no-emul-boot \
-            -joliet \
-            -rational-rock \
+            "$ISO_WORK" 2>&1 | grep -v "Warning: creating filesystem that does not conform"
+    else
+        echo "  WARNING: /efi/boot/bootaa64.efi not found, trying alternative methods"
+
+        # Try to find any EFI directory
+        if [ -d "$ISO_WORK/EFI" ] || [ -d "$ISO_WORK/efi" ]; then
+            echo "  Found EFI directory, creating basic ISO"
+        fi
+
+        # Create basic ISO (will still contain EFI files, just no boot flag)
+        sudo genisoimage \
+            -o "$OUTPUT_ISO" \
+            -J -joliet-long \
+            -R \
             -V "RCCR_${TYPE^^}" \
             "$ISO_WORK" 2>&1 | grep -v "Warning: creating filesystem that does not conform"
     fi
