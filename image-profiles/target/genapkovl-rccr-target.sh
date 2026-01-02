@@ -59,9 +59,6 @@ PubkeyAuthentication yes
 PasswordAuthentication no
 PermitEmptyPasswords no
 
-# PAM
-UsePAM yes
-
 # X11 and forwarding
 X11Forwarding no
 
@@ -98,10 +95,10 @@ cat > "$tmp"/etc/local.d/target-init.start <<'INITEOF'
 # RCCR Target Node Initialization
 
 # ===================================================================
-# Hostname Setup (BEFORE network)
+# Hostname Setup
 # ===================================================================
 
-# Ensure hostname is set from overlay before network comes up
+# Ensure hostname is set from overlay
 if [ -f /etc/hostname ]; then
     HOSTNAME=$(cat /etc/hostname)
     hostname "$HOSTNAME" 2>/dev/null || true
@@ -109,77 +106,12 @@ if [ -f /etc/hostname ]; then
 fi
 
 # ===================================================================
-# Network Wait & Check
-# ===================================================================
-
-echo ""
-echo "⚠️  IMPORTANT: Network cable must be connected for initial setup!"
-echo "Waiting for network connection..."
-sleep 3
-
-# Check network connectivity
-MAX_RETRIES=5
-RETRY_COUNT=0
-NETWORK_OK=0
-
-while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-    if ping -c 1 -W 2 dl-cdn.alpinelinux.org >/dev/null 2>&1; then
-        NETWORK_OK=1
-        echo "✓ Network connection established"
-        break
-    fi
-    RETRY_COUNT=$((RETRY_COUNT + 1))
-    echo "  Checking network... ($RETRY_COUNT/$MAX_RETRIES)"
-    sleep 2
-done
-
-if [ $NETWORK_OK -eq 0 ]; then
-    echo ""
-    echo "╔═══════════════════════════════════════════════════════════════════╗"
-    echo "║                         NETWORK ERROR                             ║"
-    echo "╚═══════════════════════════════════════════════════════════════════╝"
-    echo ""
-    echo "⚠️  No network connection detected!"
-    echo ""
-    echo "RCCR requires internet to download packages (SSH, Python)."
-    echo ""
-    echo "Please:"
-    echo "  1. Connect network cable"
-    echo "  2. Check DHCP server is running"
-    echo "  3. Reboot: 'reboot'"
-    echo ""
-    echo "Continuing with limited functionality in 5 seconds..."
-    sleep 5
-fi
-
-# ===================================================================
-# Package Installation (Requires Network)
-# ===================================================================
-
-if [ $NETWORK_OK -eq 1 ] && [ -f /etc/apk/world ]; then
-    # Check if packages are already installed
-    MISSING_PKGS=""
-    while IFS= read -r pkg; do
-        if ! apk info -e "$pkg" >/dev/null 2>&1; then
-            MISSING_PKGS="$MISSING_PKGS $pkg"
-        fi
-    done < /etc/apk/world
-
-    if [ -n "$MISSING_PKGS" ]; then
-        echo ""
-        echo "Installing required packages..."
-        apk update
-        apk add $MISSING_PKGS
-        echo "✓ Packages installed"
-    fi
-fi
-
-# ===================================================================
 # Service Startup
 # ===================================================================
 
-# Ensure services are running
+# Start SSH service
 rc-service sshd start 2>/dev/null || true
+echo "✓ SSH service started"
 
 # ===================================================================
 # Display MOTD
@@ -201,11 +133,10 @@ System Information:
 
 Status:
   ✓ SSH Server: Running
-  ✓ Python3: Installed
   ✓ Hostname: ReCyClusteR-Node
 
-This node is ready to be managed by the Control Node.
-Waiting for Ansible configuration from the cluster manager...
+This node is ready for cluster setup.
+The Control Node will install Python and configure this node via Ansible.
 
 ⚠️  SECURITY: This node uses a temporary SSH key for initial access.
     The Control Node will automatically rotate keys during setup.
@@ -222,7 +153,6 @@ chmod +x "$tmp"/etc/local.d/target-init.start
 mkdir -p "$tmp"/etc/apk
 cat > "$tmp"/etc/apk/world <<'EOF'
 openssh
-python3
 sudo
 EOF
 
