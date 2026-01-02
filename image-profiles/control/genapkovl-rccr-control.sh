@@ -162,13 +162,42 @@ cat > "$tmp"/etc/local.d/rccr-init.start <<'INITEOF'
 
 # RCCR Control Node Initialization
 
+# ===================================================================
+# Package Installation (First Boot)
+# ===================================================================
+
+# Install packages from /etc/apk/world if not already installed
+if [ -f /etc/apk/world ]; then
+    # Check if packages are already installed
+    MISSING_PKGS=""
+    while IFS= read -r pkg; do
+        if ! apk info -e "$pkg" >/dev/null 2>&1; then
+            MISSING_PKGS="$MISSING_PKGS $pkg"
+        fi
+    done < /etc/apk/world
+
+    if [ -n "$MISSING_PKGS" ]; then
+        echo "Installing required packages..."
+        apk update
+        apk add $MISSING_PKGS
+        echo "✓ Packages installed"
+    fi
+fi
+
+# ===================================================================
+# Service Startup
+# ===================================================================
+
 # Wait for network
 sleep 2
 
 # Ensure services are running
 rc-service sshd start 2>/dev/null || true
 
-# First boot setup
+# ===================================================================
+# First Boot Setup
+# ===================================================================
+
 SETUP_FLAG="/root/.rccr-setup-done"
 
 if [ ! -f "$SETUP_FLAG" ]; then
