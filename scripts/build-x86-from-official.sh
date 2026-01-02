@@ -140,33 +140,34 @@ OUTPUT_ISO="$OUTPUT_DIR/rccr-$VERSION-$ARCH-$TYPE.iso"
 if [ "$ARCH" = "aarch64" ]; then
     # aarch64: UEFI only (no BIOS/syslinux)
     echo "  Using UEFI boot (aarch64)"
+    echo ""
+    echo "  === Debugging ISO structure ==="
+    echo "  Top-level contents:"
+    sudo ls -la "$ISO_WORK/" | head -20
+    echo ""
 
-    # Check for EFI boot image
-    if [ -f "$ISO_WORK/boot/grub/efi.img" ]; then
-        EFI_IMG="boot/grub/efi.img"
-    elif [ -f "$ISO_WORK/efi.img" ]; then
-        EFI_IMG="efi.img"
+    if [ -d "$ISO_WORK/boot" ]; then
+        echo "  /boot contents:"
+        sudo ls -laR "$ISO_WORK/boot/" | head -40
     else
-        echo "  WARNING: No EFI image found, creating basic ISO"
-        sudo genisoimage \
-            -o "$OUTPUT_ISO" \
-            -joliet \
-            -rational-rock \
-            -V "RCCR_${TYPE^^}" \
-            "$ISO_WORK" 2>&1 | grep -v "Warning: creating filesystem that does not conform"
+        echo "  No /boot directory found"
     fi
+    echo ""
 
-    if [ -n "$EFI_IMG" ]; then
-        sudo genisoimage \
-            -o "$OUTPUT_ISO" \
-            -eltorito-boot "$EFI_IMG" \
-            -eltorito-platform efi \
-            -no-emul-boot \
-            -joliet \
-            -rational-rock \
-            -V "RCCR_${TYPE^^}" \
-            "$ISO_WORK" 2>&1 | grep -v "Warning: creating filesystem that does not conform"
-    fi
+    echo "  Searching for EFI-related files:"
+    sudo find "$ISO_WORK" -type f \( -name "*efi*" -o -name "*EFI*" \) 2>/dev/null | head -20
+    echo "  ==================================="
+    echo ""
+
+    # Create basic ISO without boot options for aarch64
+    # (Alpine aarch64 may use different boot mechanism)
+    echo "  Creating ISO without boot sector (aarch64)"
+    sudo genisoimage \
+        -o "$OUTPUT_ISO" \
+        -joliet \
+        -rational-rock \
+        -V "RCCR_${TYPE^^}" \
+        "$ISO_WORK" 2>&1 | grep -v "Warning: creating filesystem that does not conform"
 else
     # x86/x86_64: BIOS boot (syslinux)
     echo "  Using BIOS boot (x86/x86_64)"
