@@ -85,20 +85,20 @@ jobs:
           echo "Version: ${{ steps.version.outputs.VERSION }}"
           echo ""
 
-          # Use different build scripts based on architecture
+          # Use Alpine official images (simple method)
           case "${{ matrix.arch }}" in
             rpi-aarch64|armv7|armhf)
-              # Raspberry Pi: Use Alpine official IMG
-              echo "Using build-rpi-from-official.sh (Alpine official IMG)"
+              # Raspberry Pi: Alpine official IMG
+              echo "Method: Alpine official IMG → mount → overlay → repack"
               bash scripts/build-rpi-from-official.sh \
                 ${{ matrix.arch }} \
                 ${{ matrix.type }} \
                 ${{ steps.version.outputs.VERSION }}
               ;;
-            *)
-              # x86/x86_64/aarch64: Use mkimage.sh
-              echo "Using build-single-image.sh (mkimage.sh)"
-              bash scripts/build-single-image.sh \
+            x86|x86_64|aarch64)
+              # x86/x86_64: Alpine official ISO
+              echo "Method: Alpine official ISO → extract → overlay → repack"
+              bash scripts/build-x86-from-official.sh \
                 ${{ matrix.arch }} \
                 ${{ matrix.type }} \
                 ${{ steps.version.outputs.VERSION }}
