@@ -104,12 +104,13 @@ jobs:
 
           echo ""
           echo "=== Checking if files exist ==="
-          if ! ls build/${{ matrix.arch }}-${{ matrix.type }}/rccr-*.{iso,img,img.gz} 1> /dev/null 2>&1; then
+          count=$(find build/${{ matrix.arch }}-${{ matrix.type }} -type f \( -name "rccr-*.iso" -o -name "rccr-*.img" -o -name "rccr-*.img.gz" \) | wc -l)
+          if [ "$count" -eq 0 ]; then
             echo "ERROR: No ISO/IMG file found!"
             echo "Build may have failed. Check the build logs above."
             exit 1
           fi
-          echo "✓ Image file found"
+          echo "✓ Image file found ($count file(s))"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
