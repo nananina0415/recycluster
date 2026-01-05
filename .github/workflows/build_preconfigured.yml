@@ -153,15 +153,16 @@ jobs:
 
       - name: Boot and configure Alpine (Standard ISO)
         if: matrix.type == 'std'
-        timeout-minutes: 10
+        timeout-minutes: 60
         run: |
           # QEMU로 ISO 부팅하고 설정 스크립트 실행
           expect << 'EXPECT_EOF'
-          set timeout 600
+          set timeout 3600
 
           spawn ${{ matrix.qemu_system }} \
             -M ${{ matrix.qemu_machine }} \
-            -m 1024 \
+            -m 2048 \
+            -smp 2 \
             -boot d \
             -cdrom alpine.iso \
             -nographic \
@@ -210,12 +211,13 @@ jobs:
 
       - name: Boot and configure Alpine (RPI Image)
         if: matrix.type == 'rpi'
-        timeout-minutes: 10
+        timeout-minutes: 60
         run: |
           # RPI 이미지는 직접 부팅하여 설정
           ${{ matrix.qemu_system }} \
             -M ${{ matrix.qemu_machine }} \
-            -m 1024 \
+            -m 2048 \
+            -smp 2 \
             -drive file=alpine.qcow2,format=qcow2 \
             -nographic \
             -serial mon:stdio &
