@@ -121,8 +121,17 @@ fi
 echo "Configuring network interfaces..."
 
 # Auto-configure all network interfaces with DHCP
-# This uses Alpine's standard setup-interfaces script
-setup-interfaces -a -r
+# Directly write to /etc/network/interfaces (non-interactive)
+for iface in $(ls /sys/class/net/ 2>/dev/null | grep -v '^lo$'); do
+    if ! grep -q "^iface $iface" /etc/network/interfaces 2>/dev/null; then
+        cat >> /etc/network/interfaces <<EOF
+
+auto $iface
+iface $iface inet dhcp
+EOF
+        echo "  ✓ Added $iface to network configuration"
+    fi
+done
 
 # Restart networking service to apply configuration
 echo "  Starting networking service..."
