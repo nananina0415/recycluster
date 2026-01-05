@@ -13,7 +13,6 @@ jobs:
   build:
     runs-on: ubuntu-latest
     strategy:
-      max-parallel: 1  # 순차 빌드로 리소스 경쟁 방지
       matrix:
         include:
           # Standard 아키텍처
@@ -62,72 +61,46 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y qemu-system-x86 qemu-system-arm qemu-system-aarch64 \
-            qemu-utils gzip wget xorriso expect
+            genisoimage xorriso expect gzip wget
 
       - name: Download Alpine image
         run: |
-          wget -q --show-progress -O alpine_download "${{ matrix.download_url }}"
+          echo "Downloading from: ${{ matrix.download_url }}"
+          wget -O alpine_download "${{ matrix.download_url }}"
 
       - name: Prepare image
         run: |
+          # Standard ISO는 그대로 사용
           if [[ "${{ matrix.type }}" == "std" ]]; then
-            # ISO는 그대로 사용
             mv alpine_download alpine.iso
           else
-            # IMG 압축 해제
+            # RPI img.gz 압축 해제 후 qcow2로 변환
             gunzip -c alpine_download > alpine.img
-            # qcow2로 변환 (쓰기 가능하도록)
             qemu-img convert -f raw -O qcow2 alpine.img alpine.qcow2
-            qemu-img resize alpine.qcow2 +1G
-            rm alpine.img
+            rm -f alpine_download alpine.img
           fi
 
-      - name: Create answerfile
+      - name: Create setup script
         run: |
-          cat > answerfile << 'EOF'
-          # Keyboard layout
-          KEYMAPOPTS="us us"
-          # Hostname
-          HOSTNAMEOPTS="-n ReCyClusteR-Node"
-          # Network
-          INTERFACESOPTS="auto lo
-          iface lo inet loopback
-
-          auto eth0
-          iface eth0 inet dhcp
-          "
-          # DNS
-          DNSOPTS="8.8.8.8"
-          # Timezone
-          TIMEZONEOPTS="-z UTC"
-          # Proxy
-          PROXYOPTS="none"
-          # APK Mirror
-          APKREPOSOPTS="-1"
-          # SSH
-          SSHDOPTS="-c openssh"
-          # NTP
-          NTPOPTS="-c chrony"
-          # Disk mode
-          DISKOPTS="none"
-          # LBU
-          LBUOPTS="none"
-          # APK Cache
-          APKCACHEOPTS="none"
-          EOF
-
-      - name: Boot and configure Alpine
-        timeout-minutes: 60
-        run: |
-          # 설정 스크립트 생성
-          cat > setup.sh << 'SCRIPT_EOF'
+          cat > setup_alpine.sh << 'SCRIPT_EOF'
           #!/bin/sh
           set -e
 
-          # SSH 키 설정
+          # 호스트네임 설정
+          setup-hostname -n ReCyClusteR-Node
+
+          # 네트워크 설정 (DHCP)
+          setup-interfaces -a
+
+          # SSH 설정
+          rc-update add sshd default
+          /etc/init.d/sshd start
+
+          # SSH 디렉토리 생성
           mkdir -p /root/.ssh
           chmod 700 /root/.ssh
 
+          # SSH 키 설정
           cat > /root/.ssh/authorized_keys << 'EOF'
           ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPzvIteUj6kIAAPE8VsYJG7Ax6Q28jOce1d3vfPh71AJ recycluster-init-key
           EOF
@@ -146,63 +119,114 @@ jobs:
           ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPzvIteUj6kIAAPE8VsYJG7Ax6Q28jOce1d3vfPh71AJ recycluster-init-key
           EOF
 
+          chmod 600 /root/.ssh/authorized_keys
+          chmod 600 /root/.ssh/id_ed25519
+          chmod 644 /root/.ssh/id_ed25519.pub
+
+          # SSH 클라이언트 설정
           cat > /root/.ssh/config << 'EOF'
           Host *
               StrictHostKeyChecking no
               UserKnownHostsFile=/dev/null
           EOF
-
-          chmod 600 /root/.ssh/authorized_keys
-          chmod 600 /root/.ssh/id_ed25519
-          chmod 644 /root/.ssh/id_ed25519.pub
           chmod 600 /root/.ssh/config
 
-          # LBU에 추가하고 저장
-          lbu add /root/.ssh
-          lbu commit -d
+          # SSH 서버 설정
+          sed -i 's/^#PermitRootLogin.*/PermitRootLogin prohibit-password/' /etc/ssh/sshd_config
+          sed -i 's/^#PubkeyAuthentication.*/PubkeyAuthentication yes/' /etc/ssh/sshd_config
 
+          # LBU 설정
+          lbu add /root/.ssh
+          lbu add /etc/ssh/sshd_config
+          lbu add /etc/hostname
+          lbu add /etc/network/interfaces
+
+          # 설정 저장
+          lbu commit -d
+          lbu package /media/setup/rccr-config.apkovl.tar.gz
+
+          echo "Setup complete!"
           poweroff
           SCRIPT_EOF
 
-          chmod +x setup.sh
+          chmod +x setup_alpine.sh
 
-          # QEMU로 부팅 및 설정
-          if [[ "${{ matrix.type }}" == "std" ]]; then
-            # ISO 부팅
-            timeout 3600 expect << 'EXPECT_EOF' || true
-            set timeout -1
-            spawn ${{ matrix.qemu_system }} \
-              -M ${{ matrix.qemu_machine }} \
-              -m 2048 \
-              -smp 2 \
-              -boot d \
-              -cdrom alpine.iso \
-              -nographic
+      - name: Boot and configure Alpine (Standard ISO)
+        if: matrix.type == 'std'
+        timeout-minutes: 10
+        run: |
+          # QEMU로 ISO 부팅하고 설정 스크립트 실행
+          expect << 'EXPECT_EOF'
+          set timeout 600
 
-            expect "login:"
-            send "root\r"
+          spawn ${{ matrix.qemu_system }} \
+            -M ${{ matrix.qemu_machine }} \
+            -m 1024 \
+            -boot d \
+            -cdrom alpine.iso \
+            -nographic \
+            -serial mon:stdio
 
-            expect "#"
-            send "setup-alpine -f answerfile\r"
+          expect "localhost login:"
+          send "root\r"
 
-            expect "#"
-            send "./setup.sh\r"
+          expect "localhost:~#"
+          send "setup-alpine -q\r"
 
-            expect eof
-            EXPECT_EOF
-          else
-            # IMG 부팅
-            timeout 3600 ${{ matrix.qemu_system }} \
-              -M ${{ matrix.qemu_machine }} \
-              -m 2048 \
-              -smp 2 \
-              -drive file=alpine.qcow2,format=qcow2 \
-              -nographic || true
+          expect "localhost:~#"
+          send "poweroff\r"
 
-            # qcow2를 raw로 변환
-            qemu-img convert -f qcow2 -O raw alpine.qcow2 alpine.img
-            gzip -c alpine.img > rccr-${{ github.run_number }}-${{ matrix.type }}-${{ matrix.arch }}.img.gz
+          expect eof
+          EXPECT_EOF
+
+      - name: Create configured ISO
+        if: matrix.type == 'std'
+        run: |
+          # ISO 마운트 및 수정
+          mkdir -p iso_mount iso_custom
+          sudo mount -o loop alpine.iso iso_mount
+          cp -r iso_mount/* iso_custom/
+          sudo umount iso_mount
+
+          # apkovl 파일 추가 (있다면)
+          if [ -f rccr-config.apkovl.tar.gz ]; then
+            cp rccr-config.apkovl.tar.gz iso_custom/
           fi
+
+          # 새 ISO 생성
+          xorriso -as mkisofs \
+            -iso-level 3 \
+            -full-iso9660-filenames \
+            -volid "ReCyClusteR" \
+            -output rccr-${{ github.run_number }}-${{ matrix.type }}-${{ matrix.arch }}.iso \
+            -eltorito-boot boot/syslinux/isolinux.bin \
+            -eltorito-catalog boot/syslinux/boot.cat \
+            -no-emul-boot \
+            -boot-load-size 4 \
+            -boot-info-table \
+            iso_custom/
+
+          gzip rccr-${{ github.run_number }}-${{ matrix.type }}-${{ matrix.arch }}.iso
+
+      - name: Boot and configure Alpine (RPI Image)
+        if: matrix.type == 'rpi'
+        timeout-minutes: 10
+        run: |
+          # RPI 이미지는 직접 부팅하여 설정
+          ${{ matrix.qemu_system }} \
+            -M ${{ matrix.qemu_machine }} \
+            -m 1024 \
+            -drive file=alpine.qcow2,format=qcow2 \
+            -nographic \
+            -serial mon:stdio &
+
+          sleep 60
+          # 설정 완료 대기
+          wait
+
+          # 이미지 변환
+          qemu-img convert -f qcow2 -O raw alpine.qcow2 rccr-${{ github.run_number }}-${{ matrix.type }}-${{ matrix.arch }}.img
+          gzip rccr-${{ github.run_number }}-${{ matrix.type }}-${{ matrix.arch }}.img
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
