@@ -2,6 +2,7 @@
 original_alpine/
 
 # Build outputs
+build_output/
 *.iso
 *.iso.gz
 *.img
