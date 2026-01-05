@@ -1,0 +1,262 @@
+name: Build Pre-configured Alpine Images
+
+on:
+  push:
+    branches: [main, new]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          # Standard 아키텍처
+          - arch: x86_64
+            type: std
+            original: original_alpine/std-x86_64.iso.gz
+            qemu_arch: x86_64
+          - arch: x86
+            type: std
+            original: original_alpine/std-x86.iso.gz
+            qemu_arch: i386
+          - arch: aarch64
+            type: std
+            original: original_alpine/std-aarch64.iso.gz
+            qemu_arch: aarch64
+          # Raspberry Pi 아키텍처
+          - arch: aarch64
+            type: rpi
+            original: original_alpine/rpi-aarch64.img.gz
+            qemu_arch: aarch64
+          - arch: armv7
+            type: rpi
+            original: original_alpine/rpi-armv7.img.gz
+            qemu_arch: arm
+          - arch: armhf
+            type: rpi
+            original: original_alpine/rpi-armhf.img.gz
+            qemu_arch: arm
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: all
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qemu-system-x86 qemu-system-arm qemu-system-aarch64 \
+            genisoimage xorriso expect gzip
+
+      - name: Extract original image
+        run: |
+          gunzip -c ${{ matrix.original }} > original_image
+
+          # ISO는 그대로, IMG는 qcow2로 변환
+          if [[ "${{ matrix.type }}" == "std" ]]; then
+            mv original_image alpine.iso
+          else
+            qemu-img convert -f raw -O qcow2 original_image alpine.qcow2
+            rm original_image
+          fi
+
+      - name: Create setup script
+        run: |
+          cat > setup_alpine.sh << 'SCRIPT_EOF'
+          #!/bin/sh
+          set -e
+
+          # 호스트네임 설정
+          setup-hostname -n ReCyClusteR-Node
+
+          # 네트워크 설정 (DHCP)
+          setup-interfaces -a
+
+          # SSH 설정
+          rc-update add sshd default
+          /etc/init.d/sshd start
+
+          # SSH 디렉토리 생성
+          mkdir -p /root/.ssh
+          chmod 700 /root/.ssh
+
+          # SSH 키 설정
+          cat > /root/.ssh/authorized_keys << 'EOF'
+          ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPzvIteUj6kIAAPE8VsYJG7Ax6Q28jOce1d3vfPh71AJ recycluster-init-key
+          EOF
+
+          cat > /root/.ssh/id_ed25519 << 'EOF'
+          -----BEGIN OPENSSH PRIVATE KEY-----
+          b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
+          QyNTUxOQAAACD87yLXlI+pCAADxPFbGCRuwMekNvIznHtXd73z4e9QCQAAAJj/Y6S4/2Ok
+          uAAAAAtzc2gtZWQyNTUxOQAAACD87yLXlI+pCAADxPFbGCRuwMekNvIznHtXd73z4e9QCQ
+          AAAEDKrmrbB2FntPlNC7NQeB9eJPNyWsOLFxAQifT4Cd6ycPzvIteUj6kIAAPE8VsYJG7A
+          x6Q28jOce1d3vfPh71AJAAAAFHJlY3ljbHVzdGVyLWluaXQta2V5AQ==
+          -----END OPENSSH PRIVATE KEY-----
+          EOF
+
+          cat > /root/.ssh/id_ed25519.pub << 'EOF'
+          ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPzvIteUj6kIAAPE8VsYJG7Ax6Q28jOce1d3vfPh71AJ recycluster-init-key
+          EOF
+
+          chmod 600 /root/.ssh/authorized_keys
+          chmod 600 /root/.ssh/id_ed25519
+          chmod 644 /root/.ssh/id_ed25519.pub
+
+          # SSH 클라이언트 설정
+          cat > /root/.ssh/config << 'EOF'
+          Host *
+              StrictHostKeyChecking no
+              UserKnownHostsFile=/dev/null
+          EOF
+          chmod 600 /root/.ssh/config
+
+          # SSH 서버 설정
+          sed -i 's/^#PermitRootLogin.*/PermitRootLogin prohibit-password/' /etc/ssh/sshd_config
+          sed -i 's/^#PubkeyAuthentication.*/PubkeyAuthentication yes/' /etc/ssh/sshd_config
+
+          # LBU 설정
+          lbu add /root/.ssh
+          lbu add /etc/ssh/sshd_config
+          lbu add /etc/hostname
+          lbu add /etc/network/interfaces
+
+          # 설정 저장
+          lbu commit -d
+          lbu package /media/setup/rccr-config.apkovl.tar.gz
+
+          echo "Setup complete!"
+          poweroff
+          SCRIPT_EOF
+
+          chmod +x setup_alpine.sh
+
+      - name: Boot and configure Alpine (Standard ISO)
+        if: matrix.type == 'std'
+        timeout-minutes: 10
+        run: |
+          # QEMU로 ISO 부팅하고 설정 스크립트 실행
+          expect << 'EXPECT_EOF'
+          set timeout 600
+
+          spawn qemu-system-${{ matrix.qemu_arch }} \
+            -m 1024 \
+            -boot d \
+            -cdrom alpine.iso \
+            -nographic \
+            -serial mon:stdio
+
+          expect "localhost login:"
+          send "root\r"
+
+          expect "localhost:~#"
+          send "setup-alpine -q\r"
+
+          expect "localhost:~#"
+          send "poweroff\r"
+
+          expect eof
+          EXPECT_EOF
+
+      - name: Create configured ISO
+        if: matrix.type == 'std'
+        run: |
+          # ISO 마운트 및 수정
+          mkdir -p iso_mount iso_custom
+          sudo mount -o loop alpine.iso iso_mount
+          cp -r iso_mount/* iso_custom/
+          sudo umount iso_mount
+
+          # apkovl 파일 추가 (있다면)
+          if [ -f rccr-config.apkovl.tar.gz ]; then
+            cp rccr-config.apkovl.tar.gz iso_custom/
+          fi
+
+          # 새 ISO 생성
+          xorriso -as mkisofs \
+            -iso-level 3 \
+            -full-iso9660-filenames \
+            -volid "ReCyClusteR" \
+            -output rccr-${{ github.run_number }}-${{ matrix.type }}-${{ matrix.arch }}.iso \
+            -eltorito-boot boot/syslinux/isolinux.bin \
+            -eltorito-catalog boot/syslinux/boot.cat \
+            -no-emul-boot \
+            -boot-load-size 4 \
+            -boot-info-table \
+            iso_custom/
+
+          gzip rccr-${{ github.run_number }}-${{ matrix.type }}-${{ matrix.arch }}.iso
+
+      - name: Boot and configure Alpine (RPI Image)
+        if: matrix.type == 'rpi'
+        timeout-minutes: 10
+        run: |
+          # RPI 이미지는 직접 부팅하여 설정
+          qemu-system-${{ matrix.qemu_arch }} \
+            -M virt \
+            -m 1024 \
+            -drive file=alpine.qcow2,format=qcow2 \
+            -nographic \
+            -serial mon:stdio &
+
+          sleep 60
+          # 설정 완료 대기
+          wait
+
+          # 이미지 변환
+          qemu-img convert -f qcow2 -O raw alpine.qcow2 rccr-${{ github.run_number }}-${{ matrix.type }}-${{ matrix.arch }}.img
+          gzip rccr-${{ github.run_number }}-${{ matrix.type }}-${{ matrix.arch }}.img
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.type }}-${{ matrix.arch }}
+          path: |
+            rccr-*.iso.gz
+            rccr-*.img.gz
+          retention-days: 7
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ github.run_number }}
+          name: ReCyClusteR Alpine Images v${{ github.run_number }}
+          body: |
+            ## Pre-configured Alpine Linux Images for ReCyClusteR
+
+            ### 🔑 SSH Configuration
+            - Hostname: `ReCyClusteR-Node`
+            - Authentication: SSH key-based (password-less)
+            - All nodes share the same SSH key for initial cluster setup
+
+            ⚠️ **WARNING**: These images contain a shared SSH key for initial setup only.
+            Replace with unique keys using Ansible after deployment.
+
+            ### 📦 Available Images
+            - Standard x86_64, x86, aarch64
+            - Raspberry Pi aarch64, armv7, armhf
+
+            ### 🚀 Usage
+            1. Flash image to device
+            2. Boot and connect to network (DHCP)
+            3. SSH using the provided key
+            4. Run Ansible playbooks for cluster configuration
+          files: |
+            **/rccr-*.iso.gz
+            **/rccr-*.img.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
