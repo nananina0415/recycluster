@@ -182,46 +182,15 @@ fi
 # Network Setup
 # ===================================================================
 
-# Start loopback
-rc-service networking start 2>/dev/null || true
-
 echo "Configuring network interfaces..."
 
-# Wait for network interfaces to appear (max 5 seconds)
-echo "  Waiting for hardware initialization..."
-for attempt in $(seq 1 50); do
-    IFACE_COUNT=$(ls /sys/class/net/ 2>/dev/null | grep -v '^lo$' | wc -l)
-    if [ "$IFACE_COUNT" -gt 0 ]; then
-        echo "  ✓ Found $IFACE_COUNT interface(s)"
-        break
-    fi
-    sleep 0.1
-done
+# Auto-configure all network interfaces with DHCP
+# This uses Alpine's standard setup-interfaces script
+setup-interfaces -a -r
 
-# Configure all detected interfaces
-for iface in $(ls /sys/class/net/ 2>/dev/null | grep -v '^lo$'); do
-    echo "  Configuring $iface..."
-
-    # Bring interface up
-    ip link set "$iface" up 2>/dev/null || {
-        echo "    ⚠ Failed to bring up $iface"
-        continue
-    }
-
-    # Wait for link to be ready (max 3 seconds)
-    for i in $(seq 1 30); do
-        OPERSTATE=$(cat /sys/class/net/$iface/operstate 2>/dev/null || echo "unknown")
-        if [ "$OPERSTATE" = "up" ] || [ "$OPERSTATE" = "unknown" ]; then
-            break
-        fi
-        sleep 0.1
-    done
-
-    # Start DHCP client in background (persistent mode)
-    udhcpc -i "$iface" -b -p /var/run/udhcpc.$iface.pid -S 2>/dev/null || {
-        echo "    ⚠ DHCP client failed for $iface"
-    }
-done
+# Restart networking service to apply configuration
+echo "  Starting networking service..."
+rc-service networking restart 2>/dev/null || rc-service networking start 2>/dev/null
 
 # Wait for IP address (max 15 seconds)
 echo "  Waiting for DHCP..."
