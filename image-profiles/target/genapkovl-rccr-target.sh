@@ -121,28 +121,61 @@ fi
 # Start loopback
 rc-service networking start 2>/dev/null || true
 
-# Auto-detect and configure all network interfaces with DHCP
-echo "Starting network interfaces..."
-for iface in $(ls /sys/class/net/ | grep -v '^lo$'); do
+echo "Configuring network interfaces..."
+
+# Wait for network interfaces to appear (max 5 seconds)
+echo "  Waiting for hardware initialization..."
+for attempt in $(seq 1 50); do
+    IFACE_COUNT=$(ls /sys/class/net/ 2>/dev/null | grep -v '^lo$' | wc -l)
+    if [ "$IFACE_COUNT" -gt 0 ]; then
+        echo "  ✓ Found $IFACE_COUNT interface(s)"
+        break
+    fi
+    sleep 0.1
+done
+
+# Configure all detected interfaces
+for iface in $(ls /sys/class/net/ 2>/dev/null | grep -v '^lo$'); do
     echo "  Configuring $iface..."
 
     # Bring interface up
-    ip link set "$iface" up 2>/dev/null || continue
+    ip link set "$iface" up 2>/dev/null || {
+        echo "    ⚠ Failed to bring up $iface"
+        continue
+    }
 
-    # Start DHCP client (background)
-    udhcpc -i "$iface" -q -n -t 5 -T 3 2>/dev/null &
+    # Wait for link to be ready (max 3 seconds)
+    for i in $(seq 1 30); do
+        OPERSTATE=$(cat /sys/class/net/$iface/operstate 2>/dev/null || echo "unknown")
+        if [ "$OPERSTATE" = "up" ] || [ "$OPERSTATE" = "unknown" ]; then
+            break
+        fi
+        sleep 0.1
+    done
+
+    # Start DHCP client in background (persistent mode)
+    udhcpc -i "$iface" -b -p /var/run/udhcpc.$iface.pid -S 2>/dev/null || {
+        echo "    ⚠ DHCP client failed for $iface"
+    }
 done
 
-# Wait for DHCP to complete (max 10 seconds)
-echo "Waiting for network..."
-for i in $(seq 1 10); do
+# Wait for IP address (max 15 seconds)
+echo "  Waiting for DHCP..."
+for i in $(seq 1 150); do
     if ip -4 addr show | grep -q 'inet.*global'; then
         IP_ADDR=$(ip -4 addr show | grep 'inet ' | awk '{print $2}' | cut -d/ -f1 | grep -v 127.0.0.1 | head -1)
-        echo "✓ Network configured: $IP_ADDR"
+        echo "  ✓ Network configured: $IP_ADDR"
         break
     fi
-    sleep 1
+    sleep 0.1
 done
+
+# Show final status
+if ! ip -4 addr show | grep -q 'inet.*global'; then
+    echo "  ⚠ No IP address assigned"
+    echo "  Debug info:"
+    ip link show | grep -E '^[0-9]+:' | awk '{print "    " $2 $3}'
+fi
 
 # ===================================================================
 # Service Startup
