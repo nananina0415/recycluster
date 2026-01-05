@@ -13,6 +13,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     strategy:
+      max-parallel: 1  # 순차 빌드로 리소스 경쟁 방지
       matrix:
         include:
           # Standard 아키텍처
@@ -60,60 +61,78 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y alpine-make-vm-image gzip wget e2fsprogs dosfstools
+          sudo apt-get install -y qemu-system-x86 qemu-system-arm qemu-system-aarch64 \
+            qemu-utils gzip wget xorriso expect
 
-      - name: Setup Alpine repositories
+      - name: Download Alpine image
         run: |
-          # Alpine 리포지토리 설정
-          echo "https://dl-cdn.alpinelinux.org/alpine/v3.23/main" | sudo tee /tmp/repositories
-          echo "https://dl-cdn.alpinelinux.org/alpine/v3.23/community" | sudo tee -a /tmp/repositories
+          wget -q --show-progress -O alpine_download "${{ matrix.download_url }}"
 
-      - name: Build image with alpine-make-vm-image
+      - name: Prepare image
         run: |
-          # alpine-make-vm-image를 사용하여 이미지 생성
-          OUTPUT_FILE="rccr-${{ github.run_number }}-${{ matrix.type }}-${{ matrix.arch }}.img"
-
-          # 이미지 형식 결정
           if [[ "${{ matrix.type }}" == "std" ]]; then
-            FORMAT="iso"
+            # ISO는 그대로 사용
+            mv alpine_download alpine.iso
           else
-            FORMAT="rpi"
+            # IMG 압축 해제
+            gunzip -c alpine_download > alpine.img
+            # qcow2로 변환 (쓰기 가능하도록)
+            qemu-img convert -f raw -O qcow2 alpine.img alpine.qcow2
+            qemu-img resize alpine.qcow2 +1G
+            rm alpine.img
           fi
 
-          # 이미지 생성
-          sudo alpine-make-vm-image \
-            --image-format $FORMAT \
-            --image-size 2G \
-            --repositories-file /tmp/repositories \
-            --packages "openssh" \
-            --script-chroot \
-            $OUTPUT_FILE - <<'SETUP_SCRIPT'
-          #!/bin/sh
-          set -e
-
-          # 호스트네임 설정
-          echo "ReCyClusteR-Node" > /etc/hostname
-
-          # 네트워크 설정
-          cat > /etc/network/interfaces <<EOF
-          auto lo
+      - name: Create answerfile
+        run: |
+          cat > answerfile << 'EOF'
+          # Keyboard layout
+          KEYMAPOPTS="us us"
+          # Hostname
+          HOSTNAMEOPTS="-n ReCyClusteR-Node"
+          # Network
+          INTERFACESOPTS="auto lo
           iface lo inet loopback
 
           auto eth0
           iface eth0 inet dhcp
-              hostname ReCyClusteR-Node
+          "
+          # DNS
+          DNSOPTS="8.8.8.8"
+          # Timezone
+          TIMEZONEOPTS="-z UTC"
+          # Proxy
+          PROXYOPTS="none"
+          # APK Mirror
+          APKREPOSOPTS="-1"
+          # SSH
+          SSHDOPTS="-c openssh"
+          # NTP
+          NTPOPTS="-c chrony"
+          # Disk mode
+          DISKOPTS="none"
+          # LBU
+          LBUOPTS="none"
+          # APK Cache
+          APKCACHEOPTS="none"
           EOF
 
-          # SSH 디렉토리 생성
+      - name: Boot and configure Alpine
+        timeout-minutes: 60
+        run: |
+          # 설정 스크립트 생성
+          cat > setup.sh << 'SCRIPT_EOF'
+          #!/bin/sh
+          set -e
+
+          # SSH 키 설정
           mkdir -p /root/.ssh
           chmod 700 /root/.ssh
 
-          # SSH 키 설정
-          cat > /root/.ssh/authorized_keys <<EOF
+          cat > /root/.ssh/authorized_keys << 'EOF'
           ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPzvIteUj6kIAAPE8VsYJG7Ax6Q28jOce1d3vfPh71AJ recycluster-init-key
           EOF
 
-          cat > /root/.ssh/id_ed25519 <<EOF
+          cat > /root/.ssh/id_ed25519 << 'EOF'
           -----BEGIN OPENSSH PRIVATE KEY-----
           b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
           QyNTUxOQAAACD87yLXlI+pCAADxPFbGCRuwMekNvIznHtXd73z4e9QCQAAAJj/Y6S4/2Ok
@@ -123,11 +142,11 @@ jobs:
           -----END OPENSSH PRIVATE KEY-----
           EOF
 
-          cat > /root/.ssh/id_ed25519.pub <<EOF
+          cat > /root/.ssh/id_ed25519.pub << 'EOF'
           ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPzvIteUj6kIAAPE8VsYJG7Ax6Q28jOce1d3vfPh71AJ recycluster-init-key
           EOF
 
-          cat > /root/.ssh/config <<EOF
+          cat > /root/.ssh/config << 'EOF'
           Host *
               StrictHostKeyChecking no
               UserKnownHostsFile=/dev/null
@@ -138,22 +157,51 @@ jobs:
           chmod 644 /root/.ssh/id_ed25519.pub
           chmod 600 /root/.ssh/config
 
-          # SSH 서비스 활성화
-          rc-update add sshd default
-
-          # LBU 설정 (diskless 모드용)
+          # LBU에 추가하고 저장
           lbu add /root/.ssh
-          lbu add /etc/hostname
-          lbu add /etc/network/interfaces
           lbu commit -d
-          SETUP_SCRIPT
 
-          # 이미지 압축
+          poweroff
+          SCRIPT_EOF
+
+          chmod +x setup.sh
+
+          # QEMU로 부팅 및 설정
           if [[ "${{ matrix.type }}" == "std" ]]; then
-            gzip $OUTPUT_FILE
-            mv ${OUTPUT_FILE}.gz rccr-${{ github.run_number }}-${{ matrix.type }}-${{ matrix.arch }}.iso.gz
+            # ISO 부팅
+            timeout 3600 expect << 'EXPECT_EOF' || true
+            set timeout -1
+            spawn ${{ matrix.qemu_system }} \
+              -M ${{ matrix.qemu_machine }} \
+              -m 2048 \
+              -smp 2 \
+              -boot d \
+              -cdrom alpine.iso \
+              -nographic
+
+            expect "login:"
+            send "root\r"
+
+            expect "#"
+            send "setup-alpine -f answerfile\r"
+
+            expect "#"
+            send "./setup.sh\r"
+
+            expect eof
+            EXPECT_EOF
           else
-            gzip $OUTPUT_FILE
+            # IMG 부팅
+            timeout 3600 ${{ matrix.qemu_system }} \
+              -M ${{ matrix.qemu_machine }} \
+              -m 2048 \
+              -smp 2 \
+              -drive file=alpine.qcow2,format=qcow2 \
+              -nographic || true
+
+            # qcow2를 raw로 변환
+            qemu-img convert -f qcow2 -O raw alpine.qcow2 alpine.img
+            gzip -c alpine.img > rccr-${{ github.run_number }}-${{ matrix.type }}-${{ matrix.arch }}.img.gz
           fi
 
       - name: Upload artifact
