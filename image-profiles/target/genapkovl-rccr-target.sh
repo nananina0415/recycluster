@@ -35,27 +35,13 @@ cat > "$tmp"/etc/hosts <<EOF
 127.0.1.1	$HOSTNAME
 EOF
 
-# Network interfaces - DHCP on all interfaces
+# Network interfaces - Minimal config (loopback only)
+# Real interfaces will be auto-detected and configured by init script
 mkdir -p "$tmp"/etc/network
 cat > "$tmp"/etc/network/interfaces <<'NETEOF'
 # Loopback
 auto lo
 iface lo inet loopback
-
-# Primary network interface - DHCP
-auto eth0
-iface eth0 inet dhcp
-	hostname $HOSTNAME
-
-# Fallback interfaces
-auto wlan0
-iface wlan0 inet dhcp
-
-auto enp0s3
-iface enp0s3 inet dhcp
-
-auto enp1s0
-iface enp1s0 inet dhcp
 NETEOF
 
 # ===================================================================
@@ -132,14 +118,27 @@ fi
 # Network Setup
 # ===================================================================
 
-# Start networking (DHCP)
+# Start loopback
 rc-service networking start 2>/dev/null || true
-echo "✓ Network service started"
 
-# Wait for network (max 10 seconds)
+# Auto-detect and configure all network interfaces with DHCP
+echo "Starting network interfaces..."
+for iface in $(ls /sys/class/net/ | grep -v '^lo$'); do
+    echo "  Configuring $iface..."
+
+    # Bring interface up
+    ip link set "$iface" up 2>/dev/null || continue
+
+    # Start DHCP client (background)
+    udhcpc -i "$iface" -q -n -t 5 -T 3 2>/dev/null &
+done
+
+# Wait for DHCP to complete (max 10 seconds)
+echo "Waiting for network..."
 for i in $(seq 1 10); do
     if ip -4 addr show | grep -q 'inet.*global'; then
-        echo "✓ Network configured (DHCP)"
+        IP_ADDR=$(ip -4 addr show | grep 'inet ' | awk '{print $2}' | cut -d/ -f1 | grep -v 127.0.0.1 | head -1)
+        echo "✓ Network configured: $IP_ADDR"
         break
     fi
     sleep 1
