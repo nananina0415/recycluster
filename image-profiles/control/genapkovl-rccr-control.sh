@@ -44,27 +44,13 @@ cat > "$tmp"/etc/hosts <<EOF
 127.0.1.1	$HOSTNAME
 EOF
 
-# Network interfaces - DHCP on all interfaces
+# Network interfaces - Minimal config (loopback only)
+# Real interfaces will be auto-detected and configured by init script
 mkdir -p "$tmp"/etc/network
 cat > "$tmp"/etc/network/interfaces <<'NETEOF'
 # Loopback
 auto lo
 iface lo inet loopback
-
-# Primary network interface - DHCP
-auto eth0
-iface eth0 inet dhcp
-	hostname $HOSTNAME
-
-# Fallback interfaces
-auto wlan0
-iface wlan0 inet dhcp
-
-auto enp0s3
-iface enp0s3 inet dhcp
-
-auto enp1s0
-iface enp1s0 inet dhcp
 NETEOF
 
 # ===================================================================
@@ -196,18 +182,33 @@ fi
 # Network Setup
 # ===================================================================
 
-# Start networking (DHCP)
-rc-service networking start 2>/dev/null || true
-echo "✓ Network service started"
+echo "Configuring network interfaces..."
 
-# Wait for network (max 10 seconds)
-for i in $(seq 1 10); do
+# Auto-configure all network interfaces with DHCP using Alpine's setup-interfaces
+# Use stdin redirection to prevent interactive prompts
+setup-interfaces -a < /dev/null
+
+# Restart networking service to apply configuration
+echo "  Starting networking service..."
+rc-service networking restart 2>/dev/null || rc-service networking start 2>/dev/null
+
+# Wait for IP address (max 15 seconds)
+echo "  Waiting for DHCP..."
+for i in $(seq 1 150); do
     if ip -4 addr show | grep -q 'inet.*global'; then
-        echo "✓ Network configured (DHCP)"
+        IP_ADDR=$(ip -4 addr show | grep 'inet ' | awk '{print $2}' | cut -d/ -f1 | grep -v 127.0.0.1 | head -1)
+        echo "  ✓ Network configured: $IP_ADDR"
         break
     fi
-    sleep 1
+    sleep 0.1
 done
+
+# Show final status
+if ! ip -4 addr show | grep -q 'inet.*global'; then
+    echo "  ⚠ No IP address assigned"
+    echo "  Debug info:"
+    ip link show | grep -E '^[0-9]+:' | awk '{print "    " $2 $3}'
+fi
 
 # ===================================================================
 # Service Startup
