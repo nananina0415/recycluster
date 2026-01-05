@@ -5,6 +5,10 @@ on:
     branches: [main, new]
   workflow_dispatch:
 
+env:
+  ALPINE_VERSION: "3.23.3"
+  ALPINE_MIRROR: "https://dl-cdn.alpinelinux.org/alpine"
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -14,29 +18,29 @@ jobs:
           # Standard 아키텍처
           - arch: x86_64
             type: std
-            original: original_alpine/std-x86_64.iso.gz
             qemu_arch: x86_64
+            download_url: "https://dl-cdn.alpinelinux.org/alpine/v3.23/releases/x86_64/alpine-standard-3.23.3-x86_64.iso"
           - arch: x86
             type: std
-            original: original_alpine/std-x86.iso.gz
             qemu_arch: i386
+            download_url: "https://dl-cdn.alpinelinux.org/alpine/v3.23/releases/x86/alpine-standard-3.23.3-x86.iso"
           - arch: aarch64
             type: std
-            original: original_alpine/std-aarch64.iso.gz
             qemu_arch: aarch64
+            download_url: "https://dl-cdn.alpinelinux.org/alpine/v3.23/releases/aarch64/alpine-standard-3.23.3-aarch64.iso"
           # Raspberry Pi 아키텍처
           - arch: aarch64
             type: rpi
-            original: original_alpine/rpi-aarch64.img.gz
             qemu_arch: aarch64
+            download_url: "https://dl-cdn.alpinelinux.org/alpine/v3.23/releases/aarch64/alpine-rpi-3.23.3-aarch64.img.gz"
           - arch: armv7
             type: rpi
-            original: original_alpine/rpi-armv7.img.gz
             qemu_arch: arm
+            download_url: "https://dl-cdn.alpinelinux.org/alpine/v3.23/releases/armv7/alpine-rpi-3.23.3-armv7.img.gz"
           - arch: armhf
             type: rpi
-            original: original_alpine/rpi-armhf.img.gz
             qemu_arch: arm
+            download_url: "https://dl-cdn.alpinelinux.org/alpine/v3.23/releases/armhf/alpine-rpi-3.23.3-armhf.img.gz"
 
     steps:
       - name: Checkout
@@ -51,18 +55,23 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y qemu-system-x86 qemu-system-arm qemu-system-aarch64 \
-            genisoimage xorriso expect gzip
+            genisoimage xorriso expect gzip wget
 
-      - name: Extract original image
+      - name: Download Alpine image
         run: |
-          gunzip -c ${{ matrix.original }} > original_image
+          echo "Downloading from: ${{ matrix.download_url }}"
+          wget -O alpine_download "${{ matrix.download_url }}"
 
-          # ISO는 그대로, IMG는 qcow2로 변환
+      - name: Prepare image
+        run: |
+          # Standard ISO는 그대로 사용
           if [[ "${{ matrix.type }}" == "std" ]]; then
-            mv original_image alpine.iso
+            mv alpine_download alpine.iso
           else
-            qemu-img convert -f raw -O qcow2 original_image alpine.qcow2
-            rm original_image
+            # RPI img.gz 압축 해제 후 qcow2로 변환
+            gunzip -c alpine_download > alpine.img
+            qemu-img convert -f raw -O qcow2 alpine.img alpine.qcow2
+            rm -f alpine_download alpine.img
           fi
 
       - name: Create setup script

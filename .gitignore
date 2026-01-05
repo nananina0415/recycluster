@@ -1,0 +1,22 @@
+# Original Alpine images (too large for git)
+original_alpine/
+
+# Build outputs
+*.iso
+*.iso.gz
+*.img
+*.img.gz
+*.qcow2
+
+# Temporary files
+/tmp/
+*.tmp
+
+# IDE
+.vscode/
+.idea/
+.claude/
+
+# OS
+.DS_Store
+Thumbs.db
