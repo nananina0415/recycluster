@@ -18,28 +18,34 @@ jobs:
           # Standard 아키텍처
           - arch: x86_64
             type: std
-            qemu_arch: x86_64
+            qemu_system: qemu-system-x86_64
+            qemu_machine: pc
             download_url: "https://dl-cdn.alpinelinux.org/alpine/v3.23/releases/x86_64/alpine-standard-3.23.2-x86_64.iso"
           - arch: x86
             type: std
-            qemu_arch: i386
+            qemu_system: qemu-system-i386
+            qemu_machine: pc
             download_url: "https://dl-cdn.alpinelinux.org/alpine/v3.23/releases/x86/alpine-standard-3.23.2-x86.iso"
           - arch: aarch64
             type: std
-            qemu_arch: aarch64
+            qemu_system: qemu-system-aarch64
+            qemu_machine: virt
             download_url: "https://dl-cdn.alpinelinux.org/alpine/v3.23/releases/aarch64/alpine-standard-3.23.2-aarch64.iso"
           # Raspberry Pi 아키텍처
           - arch: aarch64
             type: rpi
-            qemu_arch: aarch64
+            qemu_system: qemu-system-aarch64
+            qemu_machine: virt
             download_url: "https://dl-cdn.alpinelinux.org/alpine/v3.23/releases/aarch64/alpine-rpi-3.23.2-aarch64.img.gz"
           - arch: armv7
             type: rpi
-            qemu_arch: arm
+            qemu_system: qemu-system-arm
+            qemu_machine: virt
             download_url: "https://dl-cdn.alpinelinux.org/alpine/v3.23/releases/armv7/alpine-rpi-3.23.2-armv7.img.gz"
           - arch: armhf
             type: rpi
-            qemu_arch: arm
+            qemu_system: qemu-system-arm
+            qemu_machine: virt
             download_url: "https://dl-cdn.alpinelinux.org/alpine/v3.23/releases/armhf/alpine-rpi-3.23.2-armhf.img.gz"
 
     steps:
@@ -153,7 +159,8 @@ jobs:
           expect << 'EXPECT_EOF'
           set timeout 600
 
-          spawn qemu-system-${{ matrix.qemu_arch }} \
+          spawn ${{ matrix.qemu_system }} \
+            -M ${{ matrix.qemu_machine }} \
             -m 1024 \
             -boot d \
             -cdrom alpine.iso \
@@ -206,8 +213,8 @@ jobs:
         timeout-minutes: 10
         run: |
           # RPI 이미지는 직접 부팅하여 설정
-          qemu-system-${{ matrix.qemu_arch }} \
-            -M virt \
+          ${{ matrix.qemu_system }} \
+            -M ${{ matrix.qemu_machine }} \
             -m 1024 \
             -drive file=alpine.qcow2,format=qcow2 \
             -nographic \
