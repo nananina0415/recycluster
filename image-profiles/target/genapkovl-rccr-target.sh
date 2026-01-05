@@ -35,6 +35,29 @@ cat > "$tmp"/etc/hosts <<EOF
 127.0.1.1	$HOSTNAME
 EOF
 
+# Network interfaces - DHCP on all interfaces
+mkdir -p "$tmp"/etc/network
+cat > "$tmp"/etc/network/interfaces <<'NETEOF'
+# Loopback
+auto lo
+iface lo inet loopback
+
+# Primary network interface - DHCP
+auto eth0
+iface eth0 inet dhcp
+	hostname $HOSTNAME
+
+# Fallback interfaces
+auto wlan0
+iface wlan0 inet dhcp
+
+auto enp0s3
+iface enp0s3 inet dhcp
+
+auto enp1s0
+iface enp1s0 inet dhcp
+NETEOF
+
 # ===================================================================
 # SSH Configuration
 # ===================================================================
@@ -106,6 +129,23 @@ if [ -f /etc/hostname ]; then
 fi
 
 # ===================================================================
+# Network Setup
+# ===================================================================
+
+# Start networking (DHCP)
+rc-service networking start 2>/dev/null || true
+echo "✓ Network service started"
+
+# Wait for network (max 10 seconds)
+for i in $(seq 1 10); do
+    if ip -4 addr show | grep -q 'inet.*global'; then
+        echo "✓ Network configured (DHCP)"
+        break
+    fi
+    sleep 1
+done
+
+# ===================================================================
 # Service Startup
 # ===================================================================
 
@@ -161,6 +201,7 @@ EOF
 # ===================================================================
 
 # Enable services
+rc_add networking boot
 rc_add sshd default
 rc_add local default
 
