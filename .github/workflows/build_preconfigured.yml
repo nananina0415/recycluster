@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 env:
-  ALPINE_VERSION: "3.23.3"
+  ALPINE_VERSION: "3.23.2"
   ALPINE_MIRROR: "https://dl-cdn.alpinelinux.org/alpine"
 
 jobs:
@@ -19,28 +19,28 @@ jobs:
           - arch: x86_64
             type: std
             qemu_arch: x86_64
-            download_url: "https://dl-cdn.alpinelinux.org/alpine/v3.23/releases/x86_64/alpine-standard-3.23.3-x86_64.iso"
+            download_url: "https://dl-cdn.alpinelinux.org/alpine/v3.23/releases/x86_64/alpine-standard-3.23.2-x86_64.iso"
           - arch: x86
             type: std
             qemu_arch: i386
-            download_url: "https://dl-cdn.alpinelinux.org/alpine/v3.23/releases/x86/alpine-standard-3.23.3-x86.iso"
+            download_url: "https://dl-cdn.alpinelinux.org/alpine/v3.23/releases/x86/alpine-standard-3.23.2-x86.iso"
           - arch: aarch64
             type: std
             qemu_arch: aarch64
-            download_url: "https://dl-cdn.alpinelinux.org/alpine/v3.23/releases/aarch64/alpine-standard-3.23.3-aarch64.iso"
+            download_url: "https://dl-cdn.alpinelinux.org/alpine/v3.23/releases/aarch64/alpine-standard-3.23.2-aarch64.iso"
           # Raspberry Pi 아키텍처
           - arch: aarch64
             type: rpi
             qemu_arch: aarch64
-            download_url: "https://dl-cdn.alpinelinux.org/alpine/v3.23/releases/aarch64/alpine-rpi-3.23.3-aarch64.img.gz"
+            download_url: "https://dl-cdn.alpinelinux.org/alpine/v3.23/releases/aarch64/alpine-rpi-3.23.2-aarch64.img.gz"
           - arch: armv7
             type: rpi
             qemu_arch: arm
-            download_url: "https://dl-cdn.alpinelinux.org/alpine/v3.23/releases/armv7/alpine-rpi-3.23.3-armv7.img.gz"
+            download_url: "https://dl-cdn.alpinelinux.org/alpine/v3.23/releases/armv7/alpine-rpi-3.23.2-armv7.img.gz"
           - arch: armhf
             type: rpi
             qemu_arch: arm
-            download_url: "https://dl-cdn.alpinelinux.org/alpine/v3.23/releases/armhf/alpine-rpi-3.23.3-armhf.img.gz"
+            download_url: "https://dl-cdn.alpinelinux.org/alpine/v3.23/releases/armhf/alpine-rpi-3.23.2-armhf.img.gz"
 
     steps:
       - name: Checkout
