@@ -60,52 +60,60 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y qemu-system-x86 qemu-system-arm qemu-system-aarch64 \
-            genisoimage xorriso expect gzip wget
+          sudo apt-get install -y alpine-make-vm-image gzip wget e2fsprogs dosfstools
 
-      - name: Download Alpine image
+      - name: Setup Alpine repositories
         run: |
-          echo "Downloading from: ${{ matrix.download_url }}"
-          wget -O alpine_download "${{ matrix.download_url }}"
+          # Alpine 리포지토리 설정
+          echo "https://dl-cdn.alpinelinux.org/alpine/v3.23/main" | sudo tee /tmp/repositories
+          echo "https://dl-cdn.alpinelinux.org/alpine/v3.23/community" | sudo tee -a /tmp/repositories
 
-      - name: Prepare image
+      - name: Build image with alpine-make-vm-image
         run: |
-          # Standard ISO는 그대로 사용
+          # alpine-make-vm-image를 사용하여 이미지 생성
+          OUTPUT_FILE="rccr-${{ github.run_number }}-${{ matrix.type }}-${{ matrix.arch }}.img"
+
+          # 이미지 형식 결정
           if [[ "${{ matrix.type }}" == "std" ]]; then
-            mv alpine_download alpine.iso
+            FORMAT="iso"
           else
-            # RPI img.gz 압축 해제 후 qcow2로 변환
-            gunzip -c alpine_download > alpine.img
-            qemu-img convert -f raw -O qcow2 alpine.img alpine.qcow2
-            rm -f alpine_download alpine.img
+            FORMAT="rpi"
           fi
 
-      - name: Create setup script
-        run: |
-          cat > setup_alpine.sh << 'SCRIPT_EOF'
+          # 이미지 생성
+          sudo alpine-make-vm-image \
+            --image-format $FORMAT \
+            --image-size 2G \
+            --repositories-file /tmp/repositories \
+            --packages "openssh" \
+            --script-chroot \
+            $OUTPUT_FILE - <<'SETUP_SCRIPT'
           #!/bin/sh
           set -e
 
           # 호스트네임 설정
-          setup-hostname -n ReCyClusteR-Node
+          echo "ReCyClusteR-Node" > /etc/hostname
 
-          # 네트워크 설정 (DHCP)
-          setup-interfaces -a
+          # 네트워크 설정
+          cat > /etc/network/interfaces <<EOF
+          auto lo
+          iface lo inet loopback
 
-          # SSH 설정
-          rc-update add sshd default
-          /etc/init.d/sshd start
+          auto eth0
+          iface eth0 inet dhcp
+              hostname ReCyClusteR-Node
+          EOF
 
           # SSH 디렉토리 생성
           mkdir -p /root/.ssh
           chmod 700 /root/.ssh
 
           # SSH 키 설정
-          cat > /root/.ssh/authorized_keys << 'EOF'
+          cat > /root/.ssh/authorized_keys <<EOF
           ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPzvIteUj6kIAAPE8VsYJG7Ax6Q28jOce1d3vfPh71AJ recycluster-init-key
           EOF
 
-          cat > /root/.ssh/id_ed25519 << 'EOF'
+          cat > /root/.ssh/id_ed25519 <<EOF
           -----BEGIN OPENSSH PRIVATE KEY-----
           b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
           QyNTUxOQAAACD87yLXlI+pCAADxPFbGCRuwMekNvIznHtXd73z4e9QCQAAAJj/Y6S4/2Ok
@@ -115,118 +123,38 @@ jobs:
           -----END OPENSSH PRIVATE KEY-----
           EOF
 
-          cat > /root/.ssh/id_ed25519.pub << 'EOF'
+          cat > /root/.ssh/id_ed25519.pub <<EOF
           ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPzvIteUj6kIAAPE8VsYJG7Ax6Q28jOce1d3vfPh71AJ recycluster-init-key
+          EOF
+
+          cat > /root/.ssh/config <<EOF
+          Host *
+              StrictHostKeyChecking no
+              UserKnownHostsFile=/dev/null
           EOF
 
           chmod 600 /root/.ssh/authorized_keys
           chmod 600 /root/.ssh/id_ed25519
           chmod 644 /root/.ssh/id_ed25519.pub
-
-          # SSH 클라이언트 설정
-          cat > /root/.ssh/config << 'EOF'
-          Host *
-              StrictHostKeyChecking no
-              UserKnownHostsFile=/dev/null
-          EOF
           chmod 600 /root/.ssh/config
 
-          # SSH 서버 설정
-          sed -i 's/^#PermitRootLogin.*/PermitRootLogin prohibit-password/' /etc/ssh/sshd_config
-          sed -i 's/^#PubkeyAuthentication.*/PubkeyAuthentication yes/' /etc/ssh/sshd_config
+          # SSH 서비스 활성화
+          rc-update add sshd default
 
-          # LBU 설정
+          # LBU 설정 (diskless 모드용)
           lbu add /root/.ssh
-          lbu add /etc/ssh/sshd_config
           lbu add /etc/hostname
           lbu add /etc/network/interfaces
-
-          # 설정 저장
           lbu commit -d
-          lbu package /media/setup/rccr-config.apkovl.tar.gz
+          SETUP_SCRIPT
 
-          echo "Setup complete!"
-          poweroff
-          SCRIPT_EOF
-
-          chmod +x setup_alpine.sh
-
-      - name: Boot and configure Alpine (Standard ISO)
-        if: matrix.type == 'std'
-        timeout-minutes: 10
-        run: |
-          # QEMU로 ISO 부팅하고 설정 스크립트 실행
-          expect << 'EXPECT_EOF'
-          set timeout 600
-
-          spawn ${{ matrix.qemu_system }} \
-            -M ${{ matrix.qemu_machine }} \
-            -m 1024 \
-            -boot d \
-            -cdrom alpine.iso \
-            -nographic \
-            -serial mon:stdio
-
-          expect "localhost login:"
-          send "root\r"
-
-          expect "localhost:~#"
-          send "setup-alpine -q\r"
-
-          expect "localhost:~#"
-          send "poweroff\r"
-
-          expect eof
-          EXPECT_EOF
-
-      - name: Create configured ISO
-        if: matrix.type == 'std'
-        run: |
-          # ISO 마운트 및 수정
-          mkdir -p iso_mount iso_custom
-          sudo mount -o loop alpine.iso iso_mount
-          cp -r iso_mount/* iso_custom/
-          sudo umount iso_mount
-
-          # apkovl 파일 추가 (있다면)
-          if [ -f rccr-config.apkovl.tar.gz ]; then
-            cp rccr-config.apkovl.tar.gz iso_custom/
+          # 이미지 압축
+          if [[ "${{ matrix.type }}" == "std" ]]; then
+            gzip $OUTPUT_FILE
+            mv ${OUTPUT_FILE}.gz rccr-${{ github.run_number }}-${{ matrix.type }}-${{ matrix.arch }}.iso.gz
+          else
+            gzip $OUTPUT_FILE
           fi
-
-          # 새 ISO 생성
-          xorriso -as mkisofs \
-            -iso-level 3 \
-            -full-iso9660-filenames \
-            -volid "ReCyClusteR" \
-            -output rccr-${{ github.run_number }}-${{ matrix.type }}-${{ matrix.arch }}.iso \
-            -eltorito-boot boot/syslinux/isolinux.bin \
-            -eltorito-catalog boot/syslinux/boot.cat \
-            -no-emul-boot \
-            -boot-load-size 4 \
-            -boot-info-table \
-            iso_custom/
-
-          gzip rccr-${{ github.run_number }}-${{ matrix.type }}-${{ matrix.arch }}.iso
-
-      - name: Boot and configure Alpine (RPI Image)
-        if: matrix.type == 'rpi'
-        timeout-minutes: 10
-        run: |
-          # RPI 이미지는 직접 부팅하여 설정
-          ${{ matrix.qemu_system }} \
-            -M ${{ matrix.qemu_machine }} \
-            -m 1024 \
-            -drive file=alpine.qcow2,format=qcow2 \
-            -nographic \
-            -serial mon:stdio &
-
-          sleep 60
-          # 설정 완료 대기
-          wait
-
-          # 이미지 변환
-          qemu-img convert -f qcow2 -O raw alpine.qcow2 rccr-${{ github.run_number }}-${{ matrix.type }}-${{ matrix.arch }}.img
-          gzip rccr-${{ github.run_number }}-${{ matrix.type }}-${{ matrix.arch }}.img
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
